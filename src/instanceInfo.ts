@@ -8,7 +8,7 @@ const instanceInfo: Route = async (r) => {
     versions: [
       "v3",
     ],
-    language: "Cloudflare Functions",
+    language: "ServiceWorker",
     project: {
       name: "infrared",
       description: "Infrared Bare Server",
