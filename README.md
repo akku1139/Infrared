@@ -13,7 +13,7 @@ Build settings
 | Setting Name | Data |
 | --- | ---|
 | Build command | `bun run build` |
-| Build output directory | / `dist` |
+| Build output directory | / `public` |
 
 Environment variables
 
