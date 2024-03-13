@@ -2,7 +2,7 @@ import instanceInfo from "./instanceInfo.ts";
 import v3 from "./v3.ts";
 
 import type { Route } from "./types.ts";
-import { error } from "./utils.js";
+import { error, HTTPStatus } from "./utils.js";
 
 const routes = {
   "": instanceInfo,
@@ -18,7 +18,7 @@ export default {
         new Error("Not Found"),
         "UNKNOWN",
         "error.NotFoundError",
-        404
+        HTTPStatus.NotFound
       );
     }
     return route(r);
