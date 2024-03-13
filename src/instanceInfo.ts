@@ -1,10 +1,10 @@
 import type { Route } from "./types.ts";
-import { JSONResponse } from "./utils.ts";
+import { json } from "./utils.ts";
 
 import * as pkg from "../package.json";
 
 const instanceInfo: Route = async (r) => {
-  return JSONResponse({
+  return json({
     versions: [
       "v3",
     ],
