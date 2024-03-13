@@ -21,7 +21,16 @@ export default {
         HTTPStatus.NotFound
       );
     }
-    return route(r);
+    try {
+      return route(r);
+    } catch(e: Error) {
+      return error(
+        e,
+        "UNKNOWN",
+        "error." + e.name,
+        HTTPStatus.InternalServerError
+      );
+    }
   }
 }
 
