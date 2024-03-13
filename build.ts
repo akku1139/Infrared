@@ -1,8 +1,7 @@
-await Bun.$`mkdir -p dist`;
-
 const result = await Bun.build({
   entrypoints: ['./src/index.ts'],
-  outdir: 'dist',
+  outdir: 'public',
+  naming: "[dir]/_worker.js",
   splitting: false,
   minify: true,
 });
@@ -10,7 +9,3 @@ const result = await Bun.build({
 if (!result.success) {
   throw new Error('Build failed');
 }
-
-await Bun.$`mv dist/index.js dist/_worker.js`;
-
-await Bun.$`cp -r static/* dist`;
