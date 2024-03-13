@@ -20,3 +20,4 @@ Environment variables
 | Name | Data |
 | --- | --- |
 | BUN_VERSION | `1.0.30` |
+| NODE_ENV | `production` |
