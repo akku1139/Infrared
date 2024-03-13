@@ -4,7 +4,7 @@ import { JSONResponse } from "./utils.ts";
 import * as pkg from "../package.json";
 
 const instanceInfo: Route = async (r) => {
-  return new JSONResponse({
+  return JSONResponse({
     versions: [
       "v3",
     ],
