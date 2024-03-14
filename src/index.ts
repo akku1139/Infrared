@@ -11,7 +11,7 @@ const routes = {
 
 export default {
   async fetch(r: Request, env: Env, ctx: ExecutionContext): Promise<Response> | Response {
-    const path = new URL(r.url).pathname.split("/").filter(Boolean).join("/");
+    const path = new URL(r.url).pathname.split("/").filter(Boolean).slice(1).join("/");
     const route = routes[path];
 
     if(route === undefined) {
