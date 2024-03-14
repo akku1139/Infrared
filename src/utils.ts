@@ -1,5 +1,21 @@
+export const baseResponse = (body?: BodyInit, init?: ResponseInit): Response => {
+  return new Response(body, {
+    ...init,
+    headers: {
+      "x-robots-tag": "noindex",
+      "access-control-allow-headers": "*",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "*",
+      "access-control-expose-headers": "*",
+      // don't fetch preflight on every request...
+      // instead, fetch preflight every 10 minutes
+      "access-control-max-age": "7200",
+    }
+  });
+};
+
 export const json = (j: Object, status: number | HTTPStatus): Response => {
-  return new Response(
+  return baseResponse(
     JSON.stringify(j),
     {
       status: status,
