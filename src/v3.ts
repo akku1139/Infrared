@@ -28,7 +28,6 @@ const v3: Route = async (req) => {
     headers: {
       "Content-Encoding": res.headers.get("Content-Encoding"),
       "Content-Length": res.headers.get("Content-Length"),
-      "Content-Type": res.headers.get("Content-Type"),
       "X-Bare-Headers": JSON.stringify(res.headers),
       "X-Bare-Status": res.status,
       "X-Bare-Status-Text": res.statusText,
