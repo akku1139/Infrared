@@ -25,7 +25,7 @@ const v3: Route = async (req) => {
   );
 
   const headerObj = {};
-  for (const [key, value] of header.entries()) {
+  for (const [key, value] of res.headers.entries()) {
     headerObj[key] = value;
   }
 
