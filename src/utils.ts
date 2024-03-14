@@ -1,17 +1,16 @@
 export const baseResponse = (body?: BodyInit, init?: ResponseInit): Response => {
-  return new Response(body, {
-    ...init,
-    headers: {
-      "x-robots-tag": "noindex",
-      "access-control-allow-headers": "*",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "*",
-      "access-control-expose-headers": "*",
-      // don't fetch preflight on every request...
-      // instead, fetch preflight every 10 minutes
-      "access-control-max-age": "7200",
-    }
-  });
+  const r = new Response(body, init);
+
+  r.headers.set("x-robots-tag", "noindex");
+  r.headers.set("access-control-allow-headers", "*");
+  r.headers.set("access-control-allow-origin", "*");
+  r.headers.set("access-control-allow-methods", "*");
+  r.headers.set("access-control-expose-headers", "*");
+  // don"t fetch preflight on every request...
+  // instead, fetch preflight every 10 minutes
+  r.headers.set("access-control-max-age", "7200");
+
+  return r;
 };
 
 export const json = (j: Object, status: number | HTTPStatus): Response => {
