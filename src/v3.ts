@@ -24,11 +24,16 @@ const v3: Route = async (req) => {
     }
   );
 
+  const headerObj = {};
+  for (const [key, value] of header.entries()) {
+    headerObj[key] = value;
+  }
+
   return baseResponse( res.body , {
     headers: {
       "Content-Encoding": res.headers.get("Content-Encoding"),
       "Content-Length": res.headers.get("Content-Length"),
-      "X-Bare-Headers": JSON.stringify(res.headers),
+      "X-Bare-Headers": JSON.stringify(headerObj),
       "X-Bare-Status": res.status,
       "X-Bare-Status-Text": res.statusText,
     },
