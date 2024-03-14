@@ -1,6 +1,7 @@
 export const baseResponse = (body?: BodyInit, init?: ResponseInit): Response => {
   const r = new Response(body, init);
 
+  // https://github.com/tomphttp/bare-server-worker/blob/master/src/BareServer.ts#L183
   r.headers.set("x-robots-tag", "noindex");
   r.headers.set("access-control-allow-headers", "*");
   r.headers.set("access-control-allow-origin", "*");
