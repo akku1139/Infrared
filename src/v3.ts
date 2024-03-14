@@ -20,7 +20,7 @@ const v3: Route = async (req) => {
     req.headers.get("X-Bare-URL"),
     {
       method: req.method,
-      headers: new Headers(req.headers.get("X-Bare-Headers"))
+      headers: new Headers(JSON.parse(req.headers.get("X-Bare-Headers"))),
     }
   );
 
