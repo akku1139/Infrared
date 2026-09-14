@@ -5,35 +5,28 @@ node_modules/
 # Build outputs
 dist/
 build/
-*.js
 *.js.map
-*.d.ts
-
-# Logs and temp files
-*.log
-*.tmp
+*.tsbuildinfo
 
 # Environment
 .env
 .env.local
 *.env.*
 
+# Logs and temp files
+*.log
+*.tmp
+
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Python artifacts (if any Python files exist in project)
+# Python (if applicable)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# Testing
-*.test.ts
-*.spec.ts
+.Python
 ```

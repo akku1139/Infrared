@@ -9,8 +9,8 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types", "node"]
   },
   "include": ["src/**/*", "build.ts"],
-  "exclude": ["node_modules", "public", "**/*.test.ts"]
+  "exclude": ["node_modules", "public"]
 }

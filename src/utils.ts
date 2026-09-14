@@ -34,11 +34,12 @@ export const json = (j: Record<string, unknown>, status: number | HTTPStatus): R
 };
 
 export const error = (e: Error, code: string, id: string, status: number | HTTPStatus = HTTPStatus.InternalServerError): Response => {
+  const message = typeof e === 'string' ? e : (e.message ?? String(e));
   return json({
     code: code,
     id: id,
-    message: e.message,
-    stack: e.stack,
+    message: message,
+    stack: typeof e === 'object' && e !== null ? (e as Error).stack : undefined,
   } satisfies BareErrorBody, status);
 }
 
