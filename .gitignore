@@ -5,6 +5,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+public/_worker.js
+public/_worker.js.map
 *.js.map
 *.tsbuildinfo
 

@@ -3,5 +3,60 @@
   <head>
     <link rel="stylesheet" type="text/css" href="/main.css" />
   </head>
-  <body>Infrared Proxy</body>
+  <body>
+    <h1>Infrared Proxy</h1>
+    <p>Bare Server V3 with WebSocket support</p>
+    
+    <script src="/client.js"></script>
+    <script>
+      // Demo usage of BareClient
+      document.addEventListener('DOMContentLoaded', () => {
+        const bareServer = window.location.origin;
+        const client = new BareClient(bareServer);
+        
+        console.log('BareClient initialized:', client);
+        
+        // Example: Test HTTP fetch
+        async function testFetch() {
+          try {
+            const response = await client.fetch('https://httpbin.org/get');
+            const data = await response.json();
+            console.log('Fetch test successful:', data);
+          } catch (e) {
+            console.error('Fetch test failed:', e);
+          }
+        }
+        
+        // Example: Test WebSocket
+        function testWebSocket() {
+          try {
+            const ws = client.websocket('wss://echo.websocket.org');
+            
+            ws.addEventListener('open', () => {
+              console.log('WebSocket connected');
+              ws.send('Hello from BareClient!');
+            });
+            
+            ws.addEventListener('message', (event) => {
+              console.log('Received message:', event.data);
+            });
+            
+            ws.addEventListener('close', () => {
+              console.log('WebSocket closed');
+            });
+            
+            ws.addEventListener('error', (e) => {
+              console.error('WebSocket error:', e);
+            });
+          } catch (e) {
+            console.error('WebSocket test failed:', e);
+          }
+        }
+        
+        // Run tests
+        testFetch();
+        // testWebSocket(); // Uncomment to test WebSocket
+      });
+    </script>
+  </body>
 </html>
