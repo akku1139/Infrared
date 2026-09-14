@@ -1,3 +1,10 @@
+export interface BareErrorBody {
+  code: string;
+  id: string;
+  message?: string;
+  stack?: string;
+}
+
 export const baseResponse = (body?: BodyInit, init?: ResponseInit): Response => {
   const r = new Response(body, init);
 
@@ -7,14 +14,14 @@ export const baseResponse = (body?: BodyInit, init?: ResponseInit): Response => 
   r.headers.set("access-control-allow-origin", "*");
   r.headers.set("access-control-allow-methods", "*");
   r.headers.set("access-control-expose-headers", "*");
-  // don"t fetch preflight on every request...
+  // don't fetch preflight on every request...
   // instead, fetch preflight every 10 minutes
   r.headers.set("access-control-max-age", "7200");
 
   return r;
 };
 
-export const json = (j: Object, status: number | HTTPStatus): Response => {
+export const json = (j: Record<string, unknown>, status: number | HTTPStatus): Response => {
   return baseResponse(
     JSON.stringify(j),
     {
@@ -27,12 +34,13 @@ export const json = (j: Object, status: number | HTTPStatus): Response => {
 };
 
 export const error = (e: Error, code: string, id: string, status: number | HTTPStatus = HTTPStatus.InternalServerError): Response => {
+  const message = typeof e === 'string' ? e : (e.message ?? String(e));
   return json({
     code: code,
     id: id,
-    message: e.message,
-    stack: e.stack,
-  }, status);
+    message: message,
+    stack: typeof e === 'object' && e !== null ? (e as Error).stack : undefined,
+  } satisfies BareErrorBody, status);
 }
 
 export enum HTTPStatus {

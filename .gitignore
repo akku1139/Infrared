@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+*.js.map
+*.tsbuildinfo
+/public/_worker.js
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs and temp files
+*.log
+*.tmp
