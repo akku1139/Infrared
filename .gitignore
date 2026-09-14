@@ -1,11 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
-build/
 *.js.map
 *.tsbuildinfo
+/public/_worker.js
 
 # Environment
 .env
@@ -15,16 +13,3 @@ build/
 # Logs and temp files
 *.log
 *.tmp
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Python (if applicable)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
