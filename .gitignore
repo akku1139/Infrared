@@ -1,4 +1,39 @@
 ```
+# Dependencies
 node_modules/
-package-lock.json
+
+# Build outputs
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Python artifacts (if any Python files exist in project)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Testing
+*.test.ts
+*.spec.ts
 ```

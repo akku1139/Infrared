@@ -1,5 +1,5 @@
 import type { Route } from "./types";
-import { json } from "./utils";
+import { json, HTTPStatus } from "./utils";
 
 import * as pkg from "../package.json";
 

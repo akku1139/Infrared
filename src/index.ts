@@ -1,7 +1,7 @@
 import instanceInfo from "./instanceInfo";
 import v3 from "./v3";
 
-import type { Route } from "./types";
+import type { Route, Env } from "./types";
 import { error, HTTPStatus } from "./utils";
 
 const routes = {
@@ -37,4 +37,4 @@ export default {
   }
 }
 
-export interface Env {}
+export type { Env };

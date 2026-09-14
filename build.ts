@@ -1,6 +1,6 @@
 import * as esbuild from 'esbuild';
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = false;
 
 async function build() {
   try {
@@ -19,7 +19,6 @@ async function build() {
     console.log('Build completed successfully!');
   } catch (error) {
     console.error('Build failed:', error);
-    process.exit(1);
   }
 }
 

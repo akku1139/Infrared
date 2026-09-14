@@ -7,11 +7,16 @@
     "url": "https://github.com/akku1139/Infrared"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "build": "node --import tsx build.ts",
+    "build": "node --no-warnings --import tsx build.ts",
     "dev": "wrangler dev",
-    "test": "node --import tsx --test src/**/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "node --no-warnings --import tsx --test 'src/**/*.test.ts'",
+    "test:coverage": "node --no-warnings --import tsx --test --experimental-test-coverage 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run typecheck && npm run test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",

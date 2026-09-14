@@ -1,4 +1,4 @@
-import type { Route, SocketClientToServer, SocketServerToClient, BareHeaders } from "./types";
+import type { Route, SocketClientToServer, SocketServerToClient, BareHeaders, Env } from "./types";
 import { HTTPStatus, baseResponse, error } from "./utils";
 
 // Forbidden headers that should not be sent to remote

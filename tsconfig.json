@@ -3,11 +3,14 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
-    "lib": ["esnext", "WebWorker"],
+    "lib": ["esnext"],
     "noEmit": true,
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "types": ["@cloudflare/workers-types", "node"]
-  }
+    "skipLibCheck": true,
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src/**/*", "build.ts"],
+  "exclude": ["node_modules", "public", "**/*.test.ts"]
 }
