@@ -8,6 +8,17 @@
   },
   "type": "module",
   "scripts": {
-    "build": "bun build.ts"
+    "build": "node --import tsx build.ts",
+    "dev": "wrangler dev",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.25.0"
   }
 }

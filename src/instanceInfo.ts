@@ -1,5 +1,5 @@
-import type { Route } from "./types.ts";
-import { json } from "./utils.ts";
+import type { Route } from "./types";
+import { json } from "./utils";
 
 import * as pkg from "../package.json";
 
@@ -15,7 +15,7 @@ const instanceInfo: Route = async (r) => {
       repository: pkg.repository.url,
       version: pkg.version,
     },
-  });
+  }, HTTPStatus.OK);
 };
 
 export default instanceInfo;

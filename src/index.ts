@@ -1,8 +1,8 @@
-import instanceInfo from "./instanceInfo.ts";
-import v3 from "./v3.ts";
+import instanceInfo from "./instanceInfo";
+import v3 from "./v3";
 
-import type { Route } from "./types.ts";
-import { error, HTTPStatus } from "./utils.js";
+import type { Route } from "./types";
+import { error, HTTPStatus } from "./utils";
 
 const routes = {
   "": instanceInfo,
@@ -10,7 +10,7 @@ const routes = {
 } satisfies { [path: string]: Route };
 
 export default {
-  async fetch(r: Request, env: Env, ctx: ExecutionContext): Promise<Response> | Response {
+  async fetch(r: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const path = new URL(r.url).pathname.split("/").filter(Boolean).slice(1).join("/");
     const route = routes[path];
 
@@ -24,12 +24,13 @@ export default {
     }
 
     try {
-      return route(r);
-    } catch(e: Error) {
+      return await route(r, env);
+    } catch(e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
       return error(
-        e,
+        err,
         "UNKNOWN",
-        "error." + e.name,
+        "error." + err.name,
         HTTPStatus.InternalServerError
       );
     }
