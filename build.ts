@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { mkdirSync } from 'fs';
+import { mkdirSync, cpSync } from 'fs';
 
 const isProduction = false;
 
@@ -19,6 +19,9 @@ async function build() {
       sourcemap: !isProduction,
       keepNames: true,
     });
+    
+    // Copy public directory to dist
+    cpSync('./public', './dist', { recursive: true });
     
     console.log('Build completed successfully!');
   } catch (error) {
