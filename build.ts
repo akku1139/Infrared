@@ -1,12 +1,16 @@
 import * as esbuild from 'esbuild';
+import { mkdirSync } from 'fs';
 
 const isProduction = false;
 
 async function build() {
   try {
+    // Ensure dist directory exists
+    mkdirSync('./dist', { recursive: true });
+    
     await esbuild.build({
       entryPoints: ['./src/index.ts'],
-      outfile: './public/_worker.js',
+      outfile: './dist/_worker.js',
       bundle: true,
       format: 'esm',
       platform: 'browser',
