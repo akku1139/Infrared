@@ -13,15 +13,16 @@
   "scripts": {
     "build": "node --no-warnings --import tsx build.ts",
     "dev": "wrangler dev",
-    "test": "node --no-warnings --import tsx --test 'src/*.test.ts'",
-    "test:coverage": "node --no-warnings --import tsx --test --experimental-test-coverage 'src/*.test.ts'",
+    "test": "node --no-warnings --import tsx --test src/*.test.ts",
+    "test:coverage": "node --no-warnings --import tsx --test --experimental-test-coverage src/*.test.ts",
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run typecheck && npm run test"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240117.0",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@types/node": "^20.11.0",
     "esbuild": "^0.20.0",
+    "miniflare": "^4.20260426.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "wrangler": "^3.25.0"
