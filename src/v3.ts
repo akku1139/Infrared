@@ -248,7 +248,10 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
   const client = webSocketPair[0];
   const server = webSocketPair[1];
 
-  // Accept the WebSocket connection
+  // Accept the server side of the pair immediately
+  server.accept();
+
+  // Return response with WebSocket
   const response = new Response(null, {
     status: 101,
     webSocket: client,
@@ -343,6 +346,9 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
 
       const remoteSocket = upgradeResponse.webSocket;
 
+      // Accept the remote socket
+      remoteSocket.accept();
+
       // Send open message to client
       const setCookies: string[] = [];
       const setCookieHeader = upgradeResponse.headers.get("set-cookie");
@@ -359,9 +365,6 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
       server.send(JSON.stringify(openMessage));
 
       // Set up bidirectional message forwarding
-      server.accept();
-      remoteSocket.accept();
-
       server.addEventListener("message", (event) => {
         if (remoteSocket.readyState === WebSocket.OPEN) {
           remoteSocket.send(event.data);
@@ -400,10 +403,7 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
     })
     .catch((e) => {
       console.error("WebSocket connection error:", e);
-      if (server.readyState === WebSocket.CONNECTING) {
-        // Connection failed before accept, close with error
-        server.close(4000, e instanceof Error ? e.message : "Connection failed");
-      } else if (server.readyState === WebSocket.OPEN) {
+      if (server.readyState === WebSocket.OPEN) {
         server.close(1011, e instanceof Error ? e.message : "Connection error");
       }
     });

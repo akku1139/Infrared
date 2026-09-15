@@ -1,55 +1,38 @@
+```
+# Build artifacts
+public/_worker.js.map
+
+# Environment
+.env
+.env.local
+*.env.*
+
 # Dependencies
 node_modules/
-.pnpm-store/
-.npm/
-.yarn/
-.yarn-cache/
-
-# Build outputs
-dist/
-build/
-public/_worker.js.map
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Logs
 *.log
 
-# Environment variables
-.env
-.env.local
-.env.*
-!.env.example
+# Coverage
+coverage/
+.nyc_output/
+istanbul/
+.reports/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-.pytest_cache/
-.mypy_cache/
-
-# Node.js
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Temporary files
 *.tmp
 *.temp
-*~
 ```
