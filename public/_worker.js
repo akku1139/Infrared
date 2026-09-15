@@ -241,6 +241,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
   const webSocketPair = new WebSocketPair();
   const client = webSocketPair[0];
   const server = webSocketPair[1];
+  server.accept();
   const response = new Response(null, {
     status: 101,
     webSocket: client
@@ -317,6 +318,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
       throw new Error("Remote did not return a WebSocket");
     }
     const remoteSocket = upgradeResponse.webSocket;
+    remoteSocket.accept();
     const setCookies = [];
     const setCookieHeader = upgradeResponse.headers.get("set-cookie");
     if (setCookieHeader) {
@@ -328,8 +330,6 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
       setCookies
     };
     server.send(JSON.stringify(openMessage));
-    server.accept();
-    remoteSocket.accept();
     server.addEventListener("message", (event) => {
       if (remoteSocket.readyState === WebSocket.OPEN) {
         remoteSocket.send(event.data);
@@ -362,9 +362,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
     });
   }).catch((e) => {
     console.error("WebSocket connection error:", e);
-    if (server.readyState === WebSocket.CONNECTING) {
-      server.close(4e3, e instanceof Error ? e.message : "Connection failed");
-    } else if (server.readyState === WebSocket.OPEN) {
+    if (server.readyState === WebSocket.OPEN) {
       server.close(1011, e instanceof Error ? e.message : "Connection error");
     }
   });

@@ -3,13 +3,16 @@ import assert from 'node:assert';
 import { Miniflare, WebSocket } from 'miniflare';
 import type { SocketClientToServer, SocketServerToClient } from './types.js';
 
+// Miniflare's WebSocket doesn't have OPEN constant, so we define it
+const WS_OPEN = 1;
+
 describe('v3 WebSocket handler with Miniflare', () => {
   let mf: Miniflare;
 
   before(async () => {
     mf = new Miniflare({
       name: 'infrared-test',
-      scriptPath: '../public/_worker.js',
+      scriptPath: './public/_worker.js',
       compatibilityDate: '2024-01-01',
       compatibilityFlags: ['nodejs_compat'],
       modules: true,
@@ -121,7 +124,7 @@ describe('v3 WebSocket handler with Miniflare', () => {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Connection should still be open at this point (timeout is 10s)
-    assert.strictEqual(ws.readyState, WebSocket.OPEN);
+    assert.strictEqual(ws.readyState, WS_OPEN);
     
     ws.close();
   });
