@@ -260,7 +260,7 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
   const connectPromise = new Promise<SocketClientToServer>((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error("Timeout waiting for connect message"));
-      server.close();
+      server.close(4000, "Connection timeout");
     }, 10000);
 
     server.addEventListener("message", (event) => {
@@ -283,6 +283,11 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
       clearTimeout(timeout);
       reject(e);
     });
+    
+    server.addEventListener("close", () => {
+      clearTimeout(timeout);
+      reject(new Error("Client closed connection before sending connect message"));
+    });
   });
 
   // Process the connection
@@ -298,15 +303,21 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
       }
 
       // Add required WebSocket headers
-      headers["Host"] = new URL(connectPacket.remote).host;
-      headers["Upgrade"] = "websocket";
-      headers["Connection"] = "Upgrade";
-
-      // Fetch the remote WebSocket
       const remoteUrl = new URL(connectPacket.remote);
       if (!["ws:", "wss:"].includes(remoteUrl.protocol)) {
         throw new Error("Invalid WebSocket protocol");
       }
+
+      // Copy Sec-WebSocket-Key and Sec-WebSocket-Version from original request
+      const secKey = req.headers.get("sec-websocket-key");
+      const secVersion = req.headers.get("sec-websocket-version");
+      const secProtocol = req.headers.get("sec-websocket-protocol");
+      
+      if (secKey) headers["sec-websocket-key"] = secKey;
+      if (secVersion) headers["sec-websocket-version"] = secVersion;
+      if (secProtocol) headers["sec-websocket-protocol"] = secProtocol;
+      
+      headers["Host"] = remoteUrl.host;
 
       const fetchHeaders = new Headers();
       for (const [header, value] of Object.entries(headers)) {
@@ -319,9 +330,11 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
         }
       }
 
-      // Use upgrade fetch for WebSocket
+      // Use upgrade fetch for WebSocket with duplex option
       const upgradeResponse = await fetch(remoteUrl.toString(), {
         headers: fetchHeaders,
+        // @ts-ignore - duplex is needed for WebSocket but not in all types
+        duplex: "half",
       });
 
       if (!upgradeResponse.webSocket) {
@@ -361,29 +374,38 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
         }
       });
 
-      server.addEventListener("close", () => {
+      server.addEventListener("close", (event) => {
         if (remoteSocket.readyState === WebSocket.OPEN) {
-          remoteSocket.close();
+          remoteSocket.close(event.code, event.reason);
         }
       });
 
-      remoteSocket.addEventListener("close", () => {
+      remoteSocket.addEventListener("close", (event) => {
         if (server.readyState === WebSocket.OPEN) {
-          server.close();
+          server.close(event.code, event.reason);
         }
       });
 
       server.addEventListener("error", () => {
-        remoteSocket.close();
+        if (remoteSocket.readyState === WebSocket.OPEN) {
+          remoteSocket.close(1011, "Server error");
+        }
       });
 
       remoteSocket.addEventListener("error", () => {
-        server.close();
+        if (server.readyState === WebSocket.OPEN) {
+          server.close(1011, "Remote error");
+        }
       });
     })
     .catch((e) => {
       console.error("WebSocket connection error:", e);
-      server.close();
+      if (server.readyState === WebSocket.CONNECTING) {
+        // Connection failed before accept, close with error
+        server.close(4000, e instanceof Error ? e.message : "Connection failed");
+      } else if (server.readyState === WebSocket.OPEN) {
+        server.close(1011, e instanceof Error ? e.message : "Connection error");
+      }
     });
 
   return response;

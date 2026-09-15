@@ -24,11 +24,12 @@ var json = /* @__PURE__ */ __name((j, status) => {
   );
 }, "json");
 var error = /* @__PURE__ */ __name((e, code, id, status = 500 /* InternalServerError */) => {
+  const message = typeof e === "string" ? e : e.message ?? String(e);
   return json({
     code,
     id,
-    message: e.message,
-    stack: e.stack
+    message,
+    stack: typeof e === "object" && e !== null ? e.stack : void 0
   }, status);
 }, "error");
 
@@ -52,7 +53,7 @@ var instanceInfo = /* @__PURE__ */ __name(async (r) => {
       repository: repository.url,
       version
     }
-  });
+  }, 200 /* OK */);
 }, "instanceInfo");
 var instanceInfo_default = instanceInfo;
 
@@ -206,8 +207,7 @@ var tunnelRequest = /* @__PURE__ */ __name(async (req) => {
       method: req.method,
       headers: fetchHeaders,
       body: req.method !== "GET" && req.method !== "HEAD" ? req.body : void 0,
-      signal,
-      duplex: "half"
+      signal
     });
     const responseHeaders = new Headers();
     for (const header of passHeaders) {
@@ -218,9 +218,9 @@ var tunnelRequest = /* @__PURE__ */ __name(async (req) => {
     }
     const status = passStatus.includes(response.status) ? response.status : 200 /* OK */;
     const headerObj = {};
-    for (const [key, value] of response.headers.entries()) {
+    response.headers.forEach((value, key) => {
       headerObj[key] = value;
-    }
+    });
     if (status !== cacheNotModified) {
       responseHeaders.set("x-bare-status", response.status.toString());
       responseHeaders.set("x-bare-status-text", response.statusText);
@@ -250,7 +250,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
   const connectPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error("Timeout waiting for connect message"));
-      server.close();
+      server.close(4e3, "Connection timeout");
     }, 1e4);
     server.addEventListener("message", (event) => {
       clearTimeout(timeout);
@@ -271,6 +271,10 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
       clearTimeout(timeout);
       reject(e);
     });
+    server.addEventListener("close", () => {
+      clearTimeout(timeout);
+      reject(new Error("Client closed connection before sending connect message"));
+    });
   });
   connectPromise.then(async (connectPacket) => {
     const headers = { ...connectPacket.headers };
@@ -280,13 +284,20 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
         headers[header] = value;
       }
     }
-    headers["Host"] = new URL(connectPacket.remote).host;
-    headers["Upgrade"] = "websocket";
-    headers["Connection"] = "Upgrade";
     const remoteUrl = new URL(connectPacket.remote);
     if (!["ws:", "wss:"].includes(remoteUrl.protocol)) {
       throw new Error("Invalid WebSocket protocol");
     }
+    const secKey = req.headers.get("sec-websocket-key");
+    const secVersion = req.headers.get("sec-websocket-version");
+    const secProtocol = req.headers.get("sec-websocket-protocol");
+    if (secKey)
+      headers["sec-websocket-key"] = secKey;
+    if (secVersion)
+      headers["sec-websocket-version"] = secVersion;
+    if (secProtocol)
+      headers["sec-websocket-protocol"] = secProtocol;
+    headers["Host"] = remoteUrl.host;
     const fetchHeaders = new Headers();
     for (const [header, value] of Object.entries(headers)) {
       if (Array.isArray(value)) {
@@ -298,7 +309,9 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
       }
     }
     const upgradeResponse = await fetch(remoteUrl.toString(), {
-      headers: fetchHeaders
+      headers: fetchHeaders,
+      // @ts-ignore - duplex is needed for WebSocket but not in all types
+      duplex: "half"
     });
     if (!upgradeResponse.webSocket) {
       throw new Error("Remote did not return a WebSocket");
@@ -327,25 +340,33 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
         server.send(event.data);
       }
     });
-    server.addEventListener("close", () => {
+    server.addEventListener("close", (event) => {
       if (remoteSocket.readyState === WebSocket.OPEN) {
-        remoteSocket.close();
+        remoteSocket.close(event.code, event.reason);
       }
     });
-    remoteSocket.addEventListener("close", () => {
+    remoteSocket.addEventListener("close", (event) => {
       if (server.readyState === WebSocket.OPEN) {
-        server.close();
+        server.close(event.code, event.reason);
       }
     });
     server.addEventListener("error", () => {
-      remoteSocket.close();
+      if (remoteSocket.readyState === WebSocket.OPEN) {
+        remoteSocket.close(1011, "Server error");
+      }
     });
     remoteSocket.addEventListener("error", () => {
-      server.close();
+      if (server.readyState === WebSocket.OPEN) {
+        server.close(1011, "Remote error");
+      }
     });
   }).catch((e) => {
     console.error("WebSocket connection error:", e);
-    server.close();
+    if (server.readyState === WebSocket.CONNECTING) {
+      server.close(4e3, e instanceof Error ? e.message : "Connection failed");
+    } else if (server.readyState === WebSocket.OPEN) {
+      server.close(1011, e instanceof Error ? e.message : "Connection error");
+    }
   });
   return response;
 }, "tunnelSocket");
@@ -379,7 +400,7 @@ var src_default = {
       );
     }
     try {
-      return route(r);
+      return await route(r, env);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       return error(
