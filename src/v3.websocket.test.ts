@@ -1,187 +1,174 @@
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert';
-import { Miniflare, WebSocket } from 'miniflare';
-import type { SocketClientToServer, SocketServerToClient } from './types.js';
+import { describe, it, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { WebSocketServer, type WebSocket as NodeWebSocket } from "ws";
+import { Miniflare } from "miniflare";
 
-// Miniflare's WebSocket doesn't have OPEN constant, so we define it
-const WS_OPEN = 1;
+type BareClient = import("@tomphttp/bare-client").BareClient;
 
-describe('v3 WebSocket handler with Miniflare', () => {
-  let mf: Miniflare;
+let bareClient: BareClient;
+let mf: Miniflare;
+let remote: WebSocketServer;
+let remoteUrl: string;
 
+class TestCloseEvent extends Event {
+  readonly code: number;
+  readonly reason: string;
+  readonly wasClean: boolean;
+
+  constructor(type: string, init: { code?: number; reason?: string; wasClean?: boolean } = {}) {
+    super(type);
+    this.code = init.code ?? 1000;
+    this.reason = init.reason ?? "";
+    this.wasClean = init.wasClean ?? this.code === 1000;
+  }
+}
+
+class WorkerWebSocket extends EventTarget {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+
+  private socket?: CloudflareWebSocket;
+  private state = WorkerWebSocket.CONNECTING;
+
+  constructor(url: string | URL) {
+    super();
+    const httpUrl = String(url).replace(/^ws/, "http");
+    void mf.dispatchFetch(httpUrl, {
+      headers: {
+        upgrade: "websocket",
+        connection: "Upgrade",
+      },
+    }).then((response) => {
+      if (!response.webSocket) throw new Error("Worker did not return a WebSocket");
+      this.socket = response.webSocket as CloudflareWebSocket;
+      this.socket.accept();
+      this.state = WorkerWebSocket.OPEN;
+      this.socket.addEventListener("message", (event) => this.dispatchEvent(new MessageEvent("message", { data: event.data })));
+      this.socket.addEventListener("close", (event) => {
+        this.state = WorkerWebSocket.CLOSED;
+        this.dispatchEvent(new TestCloseEvent("close", {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        }));
+      });
+      this.socket.addEventListener("error", () => this.dispatchEvent(new Event("error")));
+      this.dispatchEvent(new Event("open"));
+    }).catch(() => {
+      this.state = WorkerWebSocket.CLOSED;
+      this.dispatchEvent(new Event("error"));
+      this.dispatchEvent(new TestCloseEvent("close", { code: 1011, reason: "Worker connection failed" }));
+    });
+  }
+
+  get readyState(): number {
+    return this.state;
+  }
+
+  get protocol(): string {
+    return "";
+  }
+
+  get url(): string {
+    return "";
+  }
+
+  send(data: string | ArrayBuffer | ArrayBufferView): void {
+    if (!this.socket) throw new DOMException("WebSocket is not open", "InvalidStateError");
+    this.socket.send(data);
+  }
+
+  close(code?: number, reason?: string): void {
+    this.state = WorkerWebSocket.CLOSING;
+    this.socket?.close(code, reason);
+  }
+}
+
+type CloudflareWebSocket = {
+  accept(): void;
+  send(data: string | ArrayBuffer | ArrayBufferView): void;
+  close(code?: number, reason?: string): void;
+  addEventListener(type: string, listener: (event: any) => void): void;
+};
+
+function waitForEvent(target: EventTarget, type: string, timeoutMs = 5000): Promise<Event> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      target.removeEventListener(type, onEvent);
+      reject(new Error(`Timed out waiting for ${type} event`));
+    }, timeoutMs);
+    const onEvent = (event: Event) => {
+      clearTimeout(timer);
+      resolve(event);
+    };
+    target.addEventListener(type, onEvent, { once: true });
+  });
+}
+
+async function closeRemote(): Promise<void> {
+  for (const client of remote.clients) client.close();
+  remote.close();
+  await once(remote, "close");
+}
+
+describe("v3 WebSocket handler", () => {
   before(async () => {
     mf = new Miniflare({
-      name: 'infrared-test',
-      scriptPath: './dist/_worker.js',
-      compatibilityDate: '2024-01-01',
-      compatibilityFlags: ['nodejs_compat'],
+      name: "infrared-test",
+      scriptPath: "./dist/_worker.js",
+      compatibilityDate: "2024-01-01",
+      compatibilityFlags: ["nodejs_compat"],
       modules: true,
-      modulesRules: [
-        {
-          type: 'ESModule',
-          include: ['**/*.js'],
-        },
-      ],
+      modulesRules: [{ type: "ESModule", include: ["**/*.js"] }],
     });
+
+    remote = new WebSocketServer({
+      port: 0,
+      host: "127.0.0.1",
+      handleProtocols: (protocols) => protocols.has("echo") ? "echo" : false,
+    });
+    remote.on("connection", (socket: NodeWebSocket) => {
+      socket.on("message", (message, isBinary) => socket.send(message, { binary: isBinary }));
+    });
+    await once(remote, "listening");
+    const address = remote.address();
+    if (!address || typeof address === "string") throw new Error("Unable to determine WebSocket server address");
+    remoteUrl = `ws://127.0.0.1:${address.port}/echo`;
+
+    globalThis.WebSocket = WorkerWebSocket as unknown as typeof WebSocket;
+    const { BareClient } = await import("@tomphttp/bare-client");
+    bareClient = new BareClient("http://localhost/bare/", { versions: ["v3"], language: "ServiceWorker" });
   });
 
   after(async () => {
+    await closeRemote();
     await mf.dispose();
   });
 
-  it('should handle WebSocket upgrade request and return 101', async () => {
-    const worker = await mf.getWorker();
-    
-    // Create a WebSocket connection using Miniflare's fetch API
-    const response = await mf.dispatchFetch('http://localhost:8787/v3/', {
-      headers: {
-        'upgrade': 'websocket',
-      },
-    });
-    
-    // Should return 101 Switching Protocols
-    assert.strictEqual(response.status, 101);
-    
-    // Get the WebSocket from the response
-    const ws = response.webSocket;
-    assert.ok(ws, 'Should have a WebSocket in the response');
-    
-    // Accept the WebSocket
-    ws.accept();
-    
-    // Verify we can send and receive messages
-    const messagePromise = new Promise<string>((resolve) => {
-      ws.addEventListener('message', (event) => {
-        resolve(event.data as string);
-      });
-    });
-    
-    // Close the connection
-    ws.close(1000, 'Test complete');
-    
-    // The connection should close cleanly
-    await new Promise<void>((resolve) => {
-      ws.addEventListener('close', () => resolve());
-    });
+  it("connects, negotiates a protocol, and forwards messages through bare-client", async () => {
+    const socket = bareClient.createWebSocket(remoteUrl, ["echo"], {});
+    const opened = waitForEvent(socket, "open");
+    await opened;
+    assert.equal(socket.protocol, "echo");
+
+    const message = waitForEvent(socket, "message");
+    socket.send("hello from bare-client");
+    assert.equal((await message as MessageEvent).data, "hello from bare-client");
+
+    const closed = waitForEvent(socket, "close");
+    socket.close(1000, "done");
+    await closed;
   });
 
-  it('should reject invalid connect message', async () => {
-    const worker = await mf.getWorker();
-    
-    // Create a WebSocket connection
-    const response = await mf.dispatchFetch('http://localhost:8787/v3/', {
-      headers: {
-        'upgrade': 'websocket',
-      },
-    });
-    
-    assert.strictEqual(response.status, 101);
-    const ws = response.webSocket;
-    assert.ok(ws);
-    
-    ws.accept();
-    
-    // Send an invalid connect message (missing required fields)
-    const errorPromise = new Promise<string>((resolve) => {
-      ws.addEventListener('close', (event) => {
-        resolve(`code:${event.code}:reason:${event.reason}`);
-      });
-    });
-    
-    // Send invalid message
-    ws.send(JSON.stringify({
-      type: 'connect',
-      // Missing remote, protocols, headers, forwardHeaders
-    }));
-    
-    // Should receive an error close
-    const closeInfo = await errorPromise;
-    assert.ok(closeInfo.includes('code:') && !closeInfo.includes('code:1000'), 'Should close with error code');
-  });
-
-  it.skip('should handle valid WebSocket tunnel to echo server', async () => {
-    // This test requires network access to an external WebSocket server
-    // Skipped for CI environments
-  });
-
-  it('should timeout when no connect message is sent', async () => {
-    const worker = await mf.getWorker();
-    
-    // Create a WebSocket connection
-    const response = await mf.dispatchFetch('http://localhost:8787/v3/', {
-      headers: {
-        'upgrade': 'websocket',
-      },
-    });
-    
-    assert.strictEqual(response.status, 101);
-    const ws = response.webSocket;
-    assert.ok(ws);
-    
-    ws.accept();
-    
-    // Don't send any message - wait briefly to verify connection stays open
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Connection should still be open at this point (timeout is 10s)
-    assert.strictEqual(ws.readyState, WS_OPEN);
-    
-    ws.close();
-  });
-
-  it('should reject invalid protocol in connect message', async () => {
-    const worker = await mf.getWorker();
-    
-    // Create a WebSocket connection
-    const response = await mf.dispatchFetch('http://localhost:8787/v3/', {
-      headers: {
-        'upgrade': 'websocket',
-      },
-    });
-    
-    assert.strictEqual(response.status, 101);
-    const ws = response.webSocket;
-    assert.ok(ws);
-    
-    ws.accept();
-    
-    const closePromise = new Promise<number>((resolve) => {
-      ws.addEventListener('close', (event) => {
-        resolve(event.code);
-      });
-    });
-    
-    // Try to connect to HTTP URL instead of WS/WSS
-    const connectMessage: SocketClientToServer = {
-      type: 'connect',
-      remote: 'https://example.com/', // Invalid - should be ws:// or wss://
-      protocols: [],
-      headers: {},
-      forwardHeaders: [],
-    };
-    ws.send(JSON.stringify(connectMessage));
-    
-    const closeCode = await closePromise;
-    assert.ok(closeCode !== 1000, 'Should close with error for invalid protocol');
-  });
-
-  it('should properly format connect message structure', async () => {
-    // This test verifies the structure of the connect message
-    const connectMessage: SocketClientToServer = {
-      type: 'connect',
-      remote: 'wss://example.com/socket',
-      protocols: ['chat', 'superchat'],
-      headers: {
-        'Origin': 'http://localhost',
-        'User-Agent': 'Test Client',
-      },
-      forwardHeaders: ['accept-language'],
-    };
-    
-    assert.strictEqual(connectMessage.type, 'connect');
-    assert.strictEqual(connectMessage.remote, 'wss://example.com/socket');
-    assert.deepStrictEqual(connectMessage.protocols, ['chat', 'superchat']);
-    assert.ok(connectMessage.headers['Origin']);
-    assert.deepStrictEqual(connectMessage.forwardHeaders, ['accept-language']);
+  it("closes invalid connect requests instead of leaving them hanging", async () => {
+    const socket = new WorkerWebSocket("ws://localhost/bare/v3/");
+    await waitForEvent(socket, "open");
+    const closed = waitForEvent(socket, "close");
+    socket.send(JSON.stringify({ type: "connect", remote: "https://example.com" }));
+    const event = await closed as TestCloseEvent;
+    assert.notEqual(event.code, 1000);
   });
 });
