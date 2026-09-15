@@ -202,14 +202,14 @@
           Inspired by <a href="https://github.com/titaniumnetwork-dev/Ultraviolet" target="_blank">Ultraviolet</a> 
           and <a href="https://github.com/MercuryWorkshop/scramjet" target="_blank">Scramjet</a>.
         </p>
-        <p><strong>Server:</strong> <code id="serverUrl">/bare/</code></p>
+        <p><strong>Server:</strong> <code id="serverUrl"></code></p>
       </div>
     </div>
     
     <script src="/client.js"></script>
     <script>
       // Initialize BareClient
-      const bareServer = window.location.origin;
+      const bareServer = window.location.origin + '/bare/';
       document.getElementById('serverUrl').textContent = bareServer;
       const client = new BareClient(bareServer);
       
