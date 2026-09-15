@@ -375,7 +375,8 @@ const tunnelSocket = async (
     }
     headers.set("upgrade", "websocket");
     headers.set("connection", "Upgrade");
-    if (connectPacket.protocols.length > 0 && !headers.has("sec-websocket-protocol")) {
+    headers.delete("sec-websocket-protocol");
+    if (connectPacket.protocols.length > 0) {
       headers.set("sec-websocket-protocol", connectPacket.protocols.join(", "));
     }
 
@@ -389,9 +390,14 @@ const tunnelSocket = async (
     const remoteSocket = upgradeResponse.webSocket;
     remoteSocket.accept();
 
-    const setCookies: string[] = [];
-    const setCookieHeader = upgradeResponse.headers.get("set-cookie");
-    if (setCookieHeader) setCookies.push(setCookieHeader);
+    const cookieHeaders = upgradeResponse.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies = cookieHeaders.getSetCookie?.() ?? [];
+    if (setCookies.length === 0) {
+      const setCookieHeader = upgradeResponse.headers.get("set-cookie");
+      if (setCookieHeader) setCookies.push(setCookieHeader);
+    }
 
     const openMessage: SocketServerToClient = {
       type: "open",
