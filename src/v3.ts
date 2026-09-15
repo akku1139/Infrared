@@ -248,10 +248,7 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
   const client = webSocketPair[0];
   const server = webSocketPair[1];
 
-  // Accept the server side of the pair immediately
-  server.accept();
-
-  // Return response with WebSocket
+  // Return response with WebSocket (don't accept yet)
   const response = new Response(null, {
     status: 101,
     webSocket: client,
@@ -263,6 +260,7 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
   const connectPromise = new Promise<SocketClientToServer>((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error("Timeout waiting for connect message"));
+      server.accept();
       server.close(4000, "Connection timeout");
     }, 10000);
 
@@ -296,6 +294,9 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
   // Process the connection
   connectPromise
     .then(async (connectPacket) => {
+      // Accept the server side of the WebSocket pair now that we have a valid connect message
+      server.accept();
+
       // Load forwarded headers
       const headers: BareHeaders = { ...connectPacket.headers };
       for (const header of connectPacket.forwardHeaders) {
@@ -403,8 +404,15 @@ const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
     })
     .catch((e) => {
       console.error("WebSocket connection error:", e);
-      if (server.readyState === WebSocket.OPEN) {
+      // Only try to close if the WebSocket hasn't been accepted yet
+      // In Miniflare, we need to accept before closing
+      try {
+        if (server.readyState === 0) { // CONNECTING
+          server.accept();
+        }
         server.close(1011, e instanceof Error ? e.message : "Connection error");
+      } catch (closeErr) {
+        console.error("Failed to close WebSocket:", closeErr);
       }
     });
 

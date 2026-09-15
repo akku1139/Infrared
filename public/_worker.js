@@ -241,7 +241,6 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
   const webSocketPair = new WebSocketPair();
   const client = webSocketPair[0];
   const server = webSocketPair[1];
-  server.accept();
   const response = new Response(null, {
     status: 101,
     webSocket: client
@@ -251,6 +250,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
   const connectPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error("Timeout waiting for connect message"));
+      server.accept();
       server.close(4e3, "Connection timeout");
     }, 1e4);
     server.addEventListener("message", (event) => {
@@ -278,6 +278,7 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
     });
   });
   connectPromise.then(async (connectPacket) => {
+    server.accept();
     const headers = { ...connectPacket.headers };
     for (const header of connectPacket.forwardHeaders) {
       const value = req.headers.get(header);
@@ -362,8 +363,13 @@ var tunnelSocket = /* @__PURE__ */ __name(async (req, env) => {
     });
   }).catch((e) => {
     console.error("WebSocket connection error:", e);
-    if (server.readyState === WebSocket.OPEN) {
+    try {
+      if (server.readyState === 0) {
+        server.accept();
+      }
       server.close(1011, e instanceof Error ? e.message : "Connection error");
+    } catch (closeErr) {
+      console.error("Failed to close WebSocket:", closeErr);
     }
   });
   return response;
@@ -387,7 +393,7 @@ var routes = {
 };
 var src_default = {
   async fetch(r, env, ctx) {
-    const path = new URL(r.url).pathname.split("/").filter(Boolean).slice(1).join("/");
+    const path = new URL(r.url).pathname.replace(/^\/|\/$/g, "");
     const route = routes[path];
     if (route === void 0) {
       return error(
