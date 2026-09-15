@@ -13,10 +13,10 @@
   "scripts": {
     "build": "node --no-warnings --import tsx build.ts",
     "dev": "wrangler dev",
-    "test": "node --no-warnings --import tsx --test src/*.test.ts",
+    "test:only": "node --no-warnings --import tsx --test src/*.test.ts",
     "test:coverage": "node --no-warnings --import tsx --test --experimental-test-coverage src/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "prebuild": "npm run typecheck && npm run build && npm run test"
+    "test": "npm run typecheck && npm run build && npm run test:only"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
