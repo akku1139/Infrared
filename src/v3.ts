@@ -59,6 +59,74 @@ interface BareHeaderData {
   forwardHeaders: string[];
 }
 
+const webSocketConnecting = 0;
+const webSocketOpen = 1;
+const webSocketClosed = 3;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readSocketMessage(data: unknown): SocketClientToServer {
+  if (typeof data !== "string") {
+    throw new TypeError("First WebSocket message must be text");
+  }
+
+  let message: unknown;
+  try {
+    message = JSON.parse(data);
+  } catch {
+    throw new TypeError("First WebSocket message must be valid JSON");
+  }
+
+  if (!isRecord(message) || message.type !== "connect") {
+    throw new TypeError("Message type must be 'connect'");
+  }
+  if (typeof message.remote !== "string") {
+    throw new TypeError("Connect message remote must be a string");
+  }
+  if (!Array.isArray(message.protocols) || !message.protocols.every((protocol) => typeof protocol === "string")) {
+    throw new TypeError("Connect message protocols must be an array of strings");
+  }
+  if (!isRecord(message.headers)) {
+    throw new TypeError("Connect message headers must be an object");
+  }
+  if (!Array.isArray(message.forwardHeaders) || !message.forwardHeaders.every((header) => typeof header === "string")) {
+    throw new TypeError("Connect message forwardHeaders must be an array of strings");
+  }
+
+  const headers: BareHeaders = {};
+  for (const [header, value] of Object.entries(message.headers)) {
+    if (typeof value === "string") {
+      headers[header] = value;
+    } else if (Array.isArray(value) && value.every((entry) => typeof entry === "string")) {
+      headers[header] = value;
+    } else {
+      throw new TypeError(`Invalid header value for ${header}`);
+    }
+  }
+
+  return {
+    type: "connect",
+    remote: message.remote,
+    protocols: message.protocols,
+    headers,
+    forwardHeaders: message.forwardHeaders,
+  };
+}
+
+function headersFromBareHeaders(headers: BareHeaders): Headers {
+  const result = new Headers();
+  for (const [header, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      for (const entry of value) result.append(header, entry);
+    } else {
+      result.set(header, value);
+    }
+  }
+  return result;
+}
+
 function readHeaders(request: Request): BareHeaderData {
   const sendHeaders: BareHeaders = Object.create(null);
   const passHeaders = [...defaultPassHeaders];
@@ -196,12 +264,15 @@ const tunnelRequest: Route = async (req) => {
   }
 
   try {
-    const response = await fetch(remote.toString(), {
+    const fetchOptions: RequestInit & { duplex?: "half" } = {
       method: req.method,
       headers: fetchHeaders,
       body: req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
       signal,
-    });
+    };
+    if (fetchOptions.body) fetchOptions.duplex = "half";
+
+    const response = await fetch(remote.toString(), fetchOptions);
 
     const responseHeaders = new Headers();
 
@@ -241,185 +312,123 @@ const tunnelRequest: Route = async (req) => {
   }
 };
 
-// WebSocket handler for Cloudflare Pages
-const tunnelSocket = async (req: Request, env: Env): Promise<Response> => {
-  // Create WebSocket pair for proxying
+const tunnelSocket = async (
+  req: Request,
+  _env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> => {
   const webSocketPair = new WebSocketPair();
   const client = webSocketPair[0];
   const server = webSocketPair[1];
+  server.accept();
 
-  // Return response with WebSocket (don't accept yet)
   const response = new Response(null, {
-    status: 101,
+    status: HTTPStatus.SwitchingProtocols,
     webSocket: client,
   });
   response.headers.set("access-control-allow-origin", "*");
   response.headers.set("access-control-allow-headers", "*");
 
-  // Wait for the first message containing connection info
   const connectPromise = new Promise<SocketClientToServer>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error("Timeout waiting for connect message"));
-      server.accept();
-      server.close(4000, "Connection timeout");
-    }, 10000);
-
-    server.addEventListener("message", (event) => {
+    const cleanup = () => {
       clearTimeout(timeout);
+      server.removeEventListener("message", onMessage);
+      server.removeEventListener("error", onError);
+      server.removeEventListener("close", onClose);
+    };
+    const onMessage = (event: MessageEvent) => {
+      cleanup();
       try {
-        if (typeof event.data !== "string") {
-          throw new TypeError("First WebSocket message must be text");
-        }
-        const message = JSON.parse(event.data) as SocketClientToServer;
-        if (message.type !== "connect") {
-          throw new TypeError("Message type must be 'connect'");
-        }
-        resolve(message);
+        resolve(readSocketMessage(event.data));
       } catch (e) {
         reject(e);
       }
-    });
-
-    server.addEventListener("error", (e) => {
-      clearTimeout(timeout);
-      reject(e);
-    });
-    
-    server.addEventListener("close", () => {
-      clearTimeout(timeout);
+    };
+    const onError = (event: Event) => {
+      cleanup();
+      reject(event);
+    };
+    const onClose = () => {
+      cleanup();
       reject(new Error("Client closed connection before sending connect message"));
-    });
+    };
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timeout waiting for connect message"));
+    }, 10000);
+
+    server.addEventListener("message", onMessage);
+    server.addEventListener("error", onError);
+    server.addEventListener("close", onClose);
   });
 
-  // Process the connection
-  connectPromise
-    .then(async (connectPacket) => {
-      // Accept the server side of the WebSocket pair now that we have a valid connect message
-      server.accept();
+  const setup = connectPromise.then(async (connectPacket) => {
+    const remoteUrl = new URL(connectPacket.remote);
+    if (!["ws:", "wss:"].includes(remoteUrl.protocol)) {
+      throw new Error("Invalid WebSocket protocol");
+    }
 
-      // Load forwarded headers
-      const headers: BareHeaders = { ...connectPacket.headers };
-      for (const header of connectPacket.forwardHeaders) {
-        const value = req.headers.get(header);
-        if (value !== null) {
-          headers[header] = value;
-        }
-      }
+    const headers = headersFromBareHeaders(connectPacket.headers);
+    for (const header of connectPacket.forwardHeaders) {
+      const value = req.headers.get(header);
+      if (value !== null) headers.set(header, value);
+    }
+    headers.set("upgrade", "websocket");
+    headers.set("connection", "Upgrade");
+    if (connectPacket.protocols.length > 0 && !headers.has("sec-websocket-protocol")) {
+      headers.set("sec-websocket-protocol", connectPacket.protocols.join(", "));
+    }
 
-      // Add required WebSocket headers
-      const remoteUrl = new URL(connectPacket.remote);
-      if (!["ws:", "wss:"].includes(remoteUrl.protocol)) {
-        throw new Error("Invalid WebSocket protocol");
-      }
+    const fetchUrl = new URL(remoteUrl);
+    fetchUrl.protocol = remoteUrl.protocol === "ws:" ? "http:" : "https:";
+    const upgradeResponse = await fetch(fetchUrl.toString(), { headers });
+    if (!upgradeResponse.webSocket) {
+      throw new Error("Remote did not return a WebSocket");
+    }
 
-      // Copy Sec-WebSocket-Key and Sec-WebSocket-Version from original request
-      const secKey = req.headers.get("sec-websocket-key");
-      const secVersion = req.headers.get("sec-websocket-version");
-      const secProtocol = req.headers.get("sec-websocket-protocol");
-      
-      if (secKey) headers["sec-websocket-key"] = secKey;
-      if (secVersion) headers["sec-websocket-version"] = secVersion;
-      if (secProtocol) headers["sec-websocket-protocol"] = secProtocol;
-      
-      headers["Host"] = remoteUrl.host;
+    const remoteSocket = upgradeResponse.webSocket;
+    remoteSocket.accept();
 
-      const fetchHeaders = new Headers();
-      for (const [header, value] of Object.entries(headers)) {
-        if (Array.isArray(value)) {
-          for (const v of value) {
-            fetchHeaders.append(header, v);
-          }
-        } else {
-          fetchHeaders.set(header, value);
-        }
-      }
+    const setCookies: string[] = [];
+    const setCookieHeader = upgradeResponse.headers.get("set-cookie");
+    if (setCookieHeader) setCookies.push(setCookieHeader);
 
-      // Use upgrade fetch for WebSocket with duplex option
-      const upgradeResponse = await fetch(remoteUrl.toString(), {
-        headers: fetchHeaders,
-        // @ts-ignore - duplex is needed for WebSocket but not in all types
-        duplex: "half",
-      });
+    const openMessage: SocketServerToClient = {
+      type: "open",
+      protocol: remoteSocket.protocol || upgradeResponse.headers.get("sec-websocket-protocol") || "",
+      setCookies,
+    };
+    server.send(JSON.stringify(openMessage));
 
-      if (!upgradeResponse.webSocket) {
-        throw new Error("Remote did not return a WebSocket");
-      }
-
-      const remoteSocket = upgradeResponse.webSocket;
-
-      // Accept the remote socket
-      remoteSocket.accept();
-
-      // Send open message to client
-      const setCookies: string[] = [];
-      const setCookieHeader = upgradeResponse.headers.get("set-cookie");
-      if (setCookieHeader) {
-        setCookies.push(...setCookieHeader.split(", "));
-      }
-
-      const openMessage: SocketServerToClient = {
-        type: "open",
-        protocol: remoteSocket.protocol || "",
-        setCookies,
-      };
-
-      server.send(JSON.stringify(openMessage));
-
-      // Set up bidirectional message forwarding
-      server.addEventListener("message", (event) => {
-        if (remoteSocket.readyState === WebSocket.OPEN) {
-          remoteSocket.send(event.data);
-        }
-      });
-
-      remoteSocket.addEventListener("message", (event) => {
-        if (server.readyState === WebSocket.OPEN) {
-          server.send(event.data);
-        }
-      });
-
-      server.addEventListener("close", (event) => {
-        if (remoteSocket.readyState === WebSocket.OPEN) {
-          remoteSocket.close(event.code, event.reason);
-        }
-      });
-
-      remoteSocket.addEventListener("close", (event) => {
-        if (server.readyState === WebSocket.OPEN) {
-          server.close(event.code, event.reason);
-        }
-      });
-
-      server.addEventListener("error", () => {
-        if (remoteSocket.readyState === WebSocket.OPEN) {
-          remoteSocket.close(1011, "Server error");
-        }
-      });
-
-      remoteSocket.addEventListener("error", () => {
-        if (server.readyState === WebSocket.OPEN) {
-          server.close(1011, "Remote error");
-        }
-      });
-    })
-    .catch((e) => {
-      console.error("WebSocket connection error:", e);
-      // Only try to close if the WebSocket hasn't been accepted yet
-      // In Miniflare, we need to accept before closing
-      try {
-        if (server.readyState === 0) { // CONNECTING
-          server.accept();
-        }
-        server.close(1011, e instanceof Error ? e.message : "Connection error");
-      } catch (closeErr) {
-        console.error("Failed to close WebSocket:", closeErr);
-      }
+    server.addEventListener("message", (event) => {
+      if (remoteSocket.readyState === webSocketOpen) remoteSocket.send(event.data);
     });
+    remoteSocket.addEventListener("message", (event) => {
+      if (server.readyState === webSocketOpen) server.send(event.data);
+    });
+    server.addEventListener("close", (event) => {
+      if (remoteSocket.readyState === webSocketOpen) remoteSocket.close(event.code, event.reason);
+    });
+    remoteSocket.addEventListener("close", (event) => {
+      if (server.readyState === webSocketOpen) server.close(event.code, event.reason);
+    });
+    server.addEventListener("error", () => {
+      if (remoteSocket.readyState === webSocketOpen) remoteSocket.close(1011, "Server error");
+    });
+    remoteSocket.addEventListener("error", () => {
+      if (server.readyState === webSocketOpen) server.close(1011, "Remote error");
+    });
+  }).catch((e) => {
+    const reason = e instanceof Error ? e.message : "Connection error";
+    if (server.readyState === webSocketConnecting) server.accept();
+    if (server.readyState !== webSocketClosed) server.close(1011, reason);
+  });
 
+  if (ctx) ctx.waitUntil(setup);
   return response;
 };
 
-const v3: Route = async (req, env) => {
+const v3: Route = async (req, env, ctx) => {
   if (req.method === "OPTIONS") {
     return baseResponse(undefined, { status: HTTPStatus.OK });
   }
@@ -427,7 +436,7 @@ const v3: Route = async (req, env) => {
   // Check if this is a WebSocket upgrade request
   const upgrade = req.headers.get("upgrade");
   if (upgrade && upgrade.toLowerCase() === "websocket") {
-    return tunnelSocket(req, env);
+    return tunnelSocket(req, env ?? {}, ctx);
   }
 
   return tunnelRequest(req);

@@ -162,7 +162,8 @@ class BareWebSocket extends EventTarget {
     this.binaryType = 'blob';
     this.extensions = '';
     this.protocol = '';
-    
+    this._remoteOpened = false;
+
     // Bind event handlers
     this._socket.addEventListener('open', this._handleOpen.bind(this));
     this._socket.addEventListener('message', this._handleMessage.bind(this));
@@ -177,55 +178,46 @@ class BareWebSocket extends EventTarget {
       remote: this._remoteUrl,
       protocols: this._protocols,
       headers: {},
-      forwardHeaders: ['user-agent', 'origin', 'referer'],
+      forwardHeaders: [],
     };
     
     this._socket.send(JSON.stringify(connectMessage));
   }
 
   _handleMessage(event) {
-    try {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'open') {
-        // Server confirmed connection
-        this.readyState = WebSocket.OPEN;
-        this.protocol = data.protocol || '';
-        
-        // Handle set-cookies if present
-        if (data.setCookies && data.setCookies.length > 0) {
-          console.log('Received cookies:', data.setCookies);
-        }
-        
-        // Trigger open event
-        this.dispatchEvent(new Event('open'));
-      } else if (data.type === 'message') {
-        // Regular message from remote
-        const messageData = data.data;
-        this.dispatchEvent(new MessageEvent('message', { 
-          data: messageData,
-          origin: this._remoteUrl,
-        }));
-      } else if (data.type === 'close') {
-        // Remote closed connection
-        this.readyState = WebSocket.CLOSING;
-        this.dispatchEvent(new CloseEvent('close', {
-          code: data.code || 1000,
-          reason: data.reason || '',
-          wasClean: true,
-        }));
-        this.readyState = WebSocket.CLOSED;
-      } else if (data.type === 'error') {
-        // Error from server
-        this.dispatchEvent(new Event('error'));
+    if (!this._remoteOpened) {
+      if (typeof event.data !== 'string') {
+        this._handleError(new TypeError('The first WebSocket message must be text'));
+        this._socket.close(1011, 'Invalid Bare WebSocket metadata');
+        return;
       }
-    } catch (e) {
-      // If parsing fails, might be raw data passthrough
-      this.dispatchEvent(new MessageEvent('message', { 
-        data: event.data,
-        origin: this._remoteUrl,
-      }));
+
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        this._handleError(new TypeError('The first WebSocket message must be valid JSON'));
+        this._socket.close(1011, 'Invalid Bare WebSocket metadata');
+        return;
+      }
+
+      if (data.type !== 'open') {
+        this._handleError(new TypeError('The first WebSocket message must be an open message'));
+        this._socket.close(1011, 'Invalid Bare WebSocket metadata');
+        return;
+      }
+
+      this._remoteOpened = true;
+      this.readyState = WebSocket.OPEN;
+      this.protocol = data.protocol || '';
+      this.dispatchEvent(new Event('open'));
+      return;
     }
+
+    this.dispatchEvent(new MessageEvent('message', {
+      data: event.data,
+      origin: this._remoteUrl,
+    }));
   }
 
   _handleClose(event) {
@@ -265,14 +257,6 @@ class BareWebSocket extends EventTarget {
   }
 
   close(code = 1000, reason = '') {
-    if (this.readyState === WebSocket.OPEN) {
-      const closeMessage = {
-        type: 'close',
-        code,
-        reason,
-      };
-      this._socket.send(JSON.stringify(closeMessage));
-    }
     this._socket.close(code, reason);
   }
 }

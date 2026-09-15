@@ -24,7 +24,7 @@ export default {
     }
 
     try {
-      return await route(r, env);
+      return await route(r, env, ctx);
     } catch(e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e));
       return error(

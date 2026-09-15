@@ -1,6 +1,10 @@
 export interface Env {}
 
-export type Route = (r: Request, env?: Env) => Promise<Response> | Response;
+export type Route = (
+  r: Request,
+  env?: Env,
+  ctx?: ExecutionContext,
+) => Promise<Response> | Response;
 
 // WebSocket message types for Bare Server V3
 export interface SocketClientToServer {
