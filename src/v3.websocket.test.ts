@@ -12,7 +12,7 @@ describe('v3 WebSocket handler with Miniflare', () => {
   before(async () => {
     mf = new Miniflare({
       name: 'infrared-test',
-      scriptPath: './public/_worker.js',
+      scriptPath: './dist/_worker.js',
       compatibilityDate: '2024-01-01',
       compatibilityFlags: ['nodejs_compat'],
       modules: true,

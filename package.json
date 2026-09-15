@@ -16,7 +16,7 @@
     "test": "node --no-warnings --import tsx --test src/*.test.ts",
     "test:coverage": "node --no-warnings --import tsx --test --experimental-test-coverage src/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "prebuild": "npm run typecheck && npm run test"
+    "prebuild": "npm run typecheck && npm run build && npm run test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",

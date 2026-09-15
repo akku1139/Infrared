@@ -1,42 +1,46 @@
 ```
-# Map files
-*.map
+# Dependencies
+node_modules/
+
+# Build artifacts
+build/
+dist/
+
+# Environment
+.env
+.env.local
+*.env.*
 
 # Logs and temp files
 *.log
 *.tmp
 
-# Environment
-.env
-.env.local
-.env.*
-
 # Editors
 .vscode/
 .idea/
 
-# Dependencies
-node_modules/
-.venv/
-venv/
+# Python cache (if applicable)
 __pycache__/
-.mypy_cache/
-.pytest_cache/
-target/
-.gradle/
+*.pyc
+*.pyo
+*.pyd
 
-# Build artifacts
-dist/
-build/
+# Coverage reports
 coverage/
 htmlcov/
-*.pyc
-*.class
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
+.coverage
+
+# TypeScript/JavaScript build artifacts
+*.js.map
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
 ```
