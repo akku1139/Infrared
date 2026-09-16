@@ -250,16 +250,24 @@ function setView(view) {
 
 function showResponseLoading(url) {
   state.currentUrl = url;
-  elements.responseTitle.textContent = 'Loading…';
+  state.currentBody = '';
+  elements.responseTitle.textContent = titleForUrl(url);
   elements.responseUrl.textContent = url;
   elements.responseStatus.textContent = 'CONNECTING';
   elements.responseStatus.style.color = 'var(--accent)';
   elements.responseBody.replaceChildren();
-  const loading = document.createElement('div');
-  loading.className = 'loading-state';
-  loading.textContent = 'プロキシ経由で接続しています…';
-  elements.responseBody.append(loading);
+  const frame = document.createElement('iframe');
+  frame.title = `プロキシ: ${titleForUrl(url)}`;
+  frame.setAttribute('sandbox', 'allow-forms allow-modals allow-popups allow-scripts');
+  frame.src = window.infraredProxy.toProxyUrl(url);
+  frame.addEventListener('load', () => {
+    elements.responseStatus.textContent = 'OPEN';
+    elements.responseStatus.style.color = 'var(--success)';
+  }, { once: true });
+  elements.responseBody.append(frame);
   elements.responseDetails.replaceChildren();
+  appendDetail('ROUTE', '/service/');
+  appendDetail('ENGINE', 'Service Worker → Bare V3');
   setView('response');
 }
 
@@ -271,45 +279,6 @@ function appendDetail(label, value) {
   description.textContent = value;
   wrapper.append(term, description);
   elements.responseDetails.append(wrapper);
-}
-
-async function renderResponse(response, url, duration) {
-  const contentType = response.headers.get('content-type') || 'unknown';
-  const body = await response.text();
-  state.currentBody = body;
-  state.currentUrl = url;
-  elements.responseTitle.textContent = titleForUrl(url);
-  elements.responseUrl.textContent = url;
-  elements.responseMethod.textContent = 'GET';
-  elements.responseStatus.textContent = `${response.status} ${response.statusText || ''}`.trim();
-  elements.responseStatus.style.color = response.ok ? 'var(--success)' : 'var(--danger)';
-  elements.responseDetails.replaceChildren();
-  appendDetail('CONTENT TYPE', contentType);
-  appendDetail('SIZE', `${new Blob([body]).size.toLocaleString()} bytes`);
-  appendDetail('TIME', `${duration} ms`);
-  appendDetail('ENGINE', 'Bare Server V3');
-  elements.responseBody.replaceChildren();
-  if (contentType.includes('text/html') && body.length < 1_500_000) {
-    const frame = document.createElement('iframe');
-    frame.title = `プレビュー: ${titleForUrl(url)}`;
-    frame.sandbox.add('allow-forms', 'allow-modals', 'allow-popups', 'allow-scripts');
-    frame.srcdoc = body;
-    elements.responseBody.append(frame);
-  } else {
-    const pre = document.createElement('pre');
-    pre.textContent = body || '(empty response)';
-    elements.responseBody.append(pre);
-  }
-  updateBookmarkButton();
-}
-
-async function fetchThroughProxy(url) {
-  await window.infraredServiceWorker;
-  const proxyUrl = new URL('/__infrared_proxy', window.location.origin);
-  proxyUrl.searchParams.set('url', url);
-  return fetch(proxyUrl, {
-    headers: { accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8' },
-  });
 }
 
 async function openDestination(value) {
@@ -327,11 +296,24 @@ async function openDestination(value) {
   }
   setFormMessage('');
   saveHistory(url);
-  showResponseLoading(url);
-  const started = performance.now();
   try {
-    const response = await fetchThroughProxy(url);
-    await renderResponse(response, url, Math.round(performance.now() - started));
+    await window.infraredServiceWorker;
+  } catch (error) {
+    setFormMessage(error.message || 'Service Worker の起動に失敗しました。');
+    return;
+  }
+  showResponseLoading(url);
+  updateBookmarkButton();
+  try {
+    await new Promise((resolve, reject) => {
+      const frame = elements.responseBody.querySelector('iframe');
+      if (!frame) {
+        reject(new Error('プロキシ画面を作成できませんでした。'));
+        return;
+      }
+      frame.addEventListener('load', resolve, { once: true });
+      frame.addEventListener('error', () => reject(new Error('プロキシページの読み込みに失敗しました。')), { once: true });
+    });
   } catch (error) {
     elements.responseTitle.textContent = '接続エラー';
     elements.responseStatus.textContent = 'ERROR';
@@ -411,7 +393,7 @@ function init() {
   elements.bookmarkResponseButton.addEventListener('click', () => toggleBookmark(state.currentUrl));
   document.getElementById('copyResponseButton').addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(state.currentBody);
+      await navigator.clipboard.writeText(state.currentBody || state.currentUrl);
       showToast('レスポンスをコピーしました');
     } catch {
       showToast('コピーできませんでした');
@@ -439,6 +421,13 @@ function init() {
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
     if (state.theme === 'system') setTheme('system');
   });
+  if (window.location.pathname.startsWith(window.infraredProxy.prefix)) {
+    const source = window.infraredProxy.sourceUrl(window.location.href);
+    if (source && source !== window.location.href) {
+      elements.input.value = source;
+      queueMicrotask(() => openDestination(source));
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

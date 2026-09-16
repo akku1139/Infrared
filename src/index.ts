@@ -12,12 +12,17 @@ const bareRoutes = {
 
 export default {
   async fetch(r: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const pathname = new URL(r.url).pathname;
+    const requestUrl = new URL(r.url);
+    const pathname = requestUrl.pathname;
     const isWisp = pathname === "/wisp" || pathname.startsWith("/wisp/");
+    const isProxyNavigation = pathname.startsWith("/service/");
     const path = pathname.replace(/^\/bare\/?|\/$/g, "");
 
-    if (!isWisp && env.ASSETS && (pathname === "/" || !bareRoutes[path])) {
-      const asset = await env.ASSETS.fetch(r);
+    if (!isWisp && env.ASSETS && (pathname === "/" || isProxyNavigation || !bareRoutes[path])) {
+      const assetRequest = isProxyNavigation
+        ? new Request(new URL("/", requestUrl), { method: "GET", headers: r.headers })
+        : r;
+      const asset = await env.ASSETS.fetch(assetRequest);
       if (asset.status !== HTTPStatus.NotFound) return asset;
     }
 
