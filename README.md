@@ -10,7 +10,7 @@ Alternatives to bare-server and Ultraviolet
 
 `/test.html` -> Bare / Wisp test console
 
-The root page provides URL normalization, proxied response previews, local history, bookmarks, theme settings, and Bare/Wisp selection.
+The root page provides URL normalization, Service Worker based request forwarding, full-screen proxied response previews, local history, bookmarks, theme settings, and Bare/Wisp selection.
 
 ## Build
 

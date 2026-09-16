@@ -14,6 +14,7 @@ const state = {
   currentBody: '',
   currentView: 'home',
   lastView: 'home',
+  serviceWorkerReady: false,
 };
 
 const elements = {
@@ -238,6 +239,7 @@ function setView(view) {
   });
   document.querySelectorAll('[data-nav]').forEach((item) => item.classList.toggle('is-active', item.dataset.nav === view));
   state.currentView = view;
+  document.body.classList.toggle('is-browsing', view === 'response');
   if (view !== 'response') state.lastView = view;
   elements.topnav.classList.remove('is-open');
   elements.menuButton.setAttribute('aria-expanded', 'false');
@@ -301,6 +303,15 @@ async function renderResponse(response, url, duration) {
   updateBookmarkButton();
 }
 
+async function fetchThroughProxy(url) {
+  await window.infraredServiceWorker;
+  const proxyUrl = new URL('/__infrared_proxy', window.location.origin);
+  proxyUrl.searchParams.set('url', url);
+  return fetch(proxyUrl, {
+    headers: { accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8' },
+  });
+}
+
 async function openDestination(value) {
   let url;
   try {
@@ -319,7 +330,7 @@ async function openDestination(value) {
   showResponseLoading(url);
   const started = performance.now();
   try {
-    const response = await window.infraredClient.fetch(url, { headers: { accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8' } });
+    const response = await fetchThroughProxy(url);
     await renderResponse(response, url, Math.round(performance.now() - started));
   } catch (error) {
     elements.responseTitle.textContent = '接続エラー';
@@ -330,7 +341,7 @@ async function openDestination(value) {
     pre.textContent = error.message || 'プロキシ接続に失敗しました。';
     elements.responseBody.append(pre);
     elements.responseDetails.replaceChildren();
-    appendDetail('ENGINE', 'Bare Server V3');
+    appendDetail('ENGINE', 'Service Worker → Bare V3');
     appendDetail('TARGET', url);
     updateBookmarkButton();
   }
@@ -361,7 +372,14 @@ function clearCollection(collection) {
 }
 
 function init() {
-  window.infraredClient = new window.BareClient(`${window.location.origin}/bare/`);
+  window.infraredServiceWorker.then(() => {
+    state.serviceWorkerReady = true;
+    elements.statusDescription.textContent = 'Service Worker 経由で接続できます';
+  }).catch((error) => {
+    elements.statusTitle.textContent = 'Proxy unavailable';
+    elements.statusDescription.textContent = error.message;
+    showToast(error.message);
+  });
   setTheme(state.theme);
   setEngine(state.engine);
   updateOnlineState();
