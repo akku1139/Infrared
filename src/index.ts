@@ -1,20 +1,23 @@
 import instanceInfo from "./instanceInfo";
 import v3 from "./v3";
+import wisp from "./wisp";
 
 import type { Route, Env } from "./types";
 import { error, HTTPStatus } from "./utils";
 
-const routes = {
+const bareRoutes = {
   "": instanceInfo,
   "v3": v3,
 } satisfies { [path: string]: Route };
 
 export default {
   async fetch(r: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const path = new URL(r.url).pathname.replace(/^\/bare\/?|\/$/g, '');
-    const route = routes[path];
+    const pathname = new URL(r.url).pathname;
+    const isWisp = pathname === "/wisp" || pathname.startsWith("/wisp/");
+    const path = pathname.replace(/^\/bare\/?|\/$/g, "");
+    const route = isWisp ? wisp : bareRoutes[path];
 
-    if(route === undefined) {
+    if (route === undefined) {
       return error(
         new Error("Not Found"),
         "UNKNOWN",

@@ -4,7 +4,9 @@ Alternatives to bare-server and Ultraviolet
 
 `/` -> Web UI
 
-`/bare/*` -> Bare Server
+`/bare/*` -> Bare Server V3
+
+`/wisp/` -> Wisp Proxy (TCP; UDP streams are rejected because Workers exposes outbound TCP sockets only)
 
 ## Build
 
