@@ -8,6 +8,10 @@ Alternatives to bare-server and Ultraviolet
 
 `/wisp/` -> Wisp Proxy (TCP; UDP streams are rejected because Workers exposes outbound TCP sockets only)
 
+`/test.html` -> Bare / Wisp test console
+
+The root page provides URL normalization, proxied response previews, local history, bookmarks, theme settings, and Bare/Wisp selection.
+
 ## Build
 
 Build settings

@@ -15,8 +15,13 @@ export default {
     const pathname = new URL(r.url).pathname;
     const isWisp = pathname === "/wisp" || pathname.startsWith("/wisp/");
     const path = pathname.replace(/^\/bare\/?|\/$/g, "");
-    const route = isWisp ? wisp : bareRoutes[path];
 
+    if (!isWisp && env.ASSETS && (pathname === "/" || !bareRoutes[path])) {
+      const asset = await env.ASSETS.fetch(r);
+      if (asset.status !== HTTPStatus.NotFound) return asset;
+    }
+
+    const route = isWisp ? wisp : bareRoutes[path];
     if (route === undefined) {
       return error(
         new Error("Not Found"),

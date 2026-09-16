@@ -1,4 +1,6 @@
-export interface Env {}
+export interface Env {
+  ASSETS?: Fetcher;
+}
 
 export type Route = (
   r: Request,
