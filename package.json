@@ -30,5 +30,10 @@
     "typescript": "^5.3.3",
     "wrangler": "^3.25.0",
     "ws": "^8.21.3"
+  },
+  "dependencies": {
+    "@mercuryworkshop/bare-mux": "2.1.8",
+    "@mercuryworkshop/epoxy-transport": "2.1.28",
+    "@titaniumnetwork-dev/ultraviolet": "3.2.10"
   }
 }
