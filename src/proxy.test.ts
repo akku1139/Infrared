@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 const publicDirectory = join(dirname(fileURLToPath(import.meta.url)), "../public");
 const proxyUrlSource = readFileSync(join(publicDirectory, "proxy-url.js"), "utf8");
 const serviceWorkerSource = readFileSync(join(publicDirectory, "proxy-sw.js"), "utf8");
+const registerServiceWorkerSource = readFileSync(join(publicDirectory, "register-sw.js"), "utf8");
 
 function createWorker(fetchImpl: typeof fetch) {
   const listeners = new Map<string, (event: any) => void>();
@@ -107,5 +108,49 @@ describe("proxy service worker", () => {
 
     assert.equal(await (await responsePromise!).text(), "/app.js");
     assert.equal(fetchCount, 1);
+  });
+
+  it("configures Epoxy with the current Wisp endpoint", async () => {
+    const transports: Array<{ path: string; options: unknown[] }> = [];
+    const scope: Record<string, any> = {
+      BareMux: {
+        BareMuxConnection: class {
+          async getTransport() {
+            return "";
+          }
+
+          async setTransport(path: string, options: unknown[]) {
+            transports.push({ path, options });
+          }
+        },
+      },
+      location: {
+        protocol: "https:",
+        host: "proxy.example",
+      },
+      localStorage: {
+        getItem() {
+          return "wisp";
+        },
+      },
+      navigator: {
+        serviceWorker: {
+          controller: {},
+          ready: Promise.resolve(),
+          register: async () => ({}),
+        },
+      },
+      window: undefined,
+      setTimeout,
+      clearTimeout,
+    };
+    scope.window = scope;
+    const context = createContext(scope);
+    runInContext(registerServiceWorkerSource, context);
+    await scope.infraredServiceWorker;
+
+    assert.equal(transports.length, 1);
+    assert.equal(transports[0].path, "/epoxy/index.mjs");
+    assert.equal((transports[0].options[0] as { wisp: string }).wisp, "wss://proxy.example/wisp/");
   });
 });

@@ -12,7 +12,7 @@ Alternatives to bare-server and Ultraviolet
 
 `/test.html` -> Bare / Wisp test console
 
-The root page uses the official Ultraviolet runtime for HTML, CSS, JavaScript, fetch/XHR, WebSocket, EventSource, History, cookie, and navigation rewriting. Bare V3 and Wisp are selectable transports through Bare-Mux; the runtime assets and license notices are available under `/uv/`, `/baremux/`, `/epoxy/`, and `/credits.html`. The page also provides full-screen proxied response previews, local history, bookmarks, and theme settings.
+The root page uses the official Ultraviolet runtime for HTML, CSS, JavaScript, fetch/XHR, WebSocket, EventSource, History, cookie, and navigation rewriting. Bare V3 and Epoxy + Wisp are selectable Bare-Mux transports; Epoxy + Wisp carries normal HTTP proxy requests over the Wisp tunnel, not only WebSocket traffic. The runtime assets and license notices are available under `/uv/`, `/baremux/`, `/epoxy/`, and `/credits.html`. The page also provides full-screen proxied response previews, local history, bookmarks, and theme settings.
 
 ## Build
 

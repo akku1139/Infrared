@@ -56,7 +56,7 @@
                 <label class="sr-only" for="engineSelect">プロキシエンジン</label>
                 <select id="engineSelect" aria-label="プロキシエンジン">
                   <option value="bare">Bare HTTP</option>
-                  <option value="wisp">Wisp Socket</option>
+                  <option value="wisp">Epoxy + Wisp HTTP</option>
                 </select>
               </div>
               <span class="search-icon" aria-hidden="true">
@@ -96,7 +96,7 @@
             <article class="dashboard-card status-card">
               <div class="card-topline"><span class="section-kicker">SYSTEM STATUS</span><span class="status-live"><i></i>LIVE</span></div>
               <div class="status-main"><span class="status-ring"><i></i></span><div><strong id="statusTitle">Proxy is ready</strong><p id="statusDescription">安全な接続を開始できます</p></div></div>
-              <div class="status-metrics"><span><small>HTTP</small><strong>BARE V3</strong></span><span><small>SOCKET</small><strong>WISP</strong></span><span><small>SECURE</small><strong>ACTIVE</strong></span></div>
+              <div class="status-metrics"><span><small>HTTP</small><strong>BARE V3</strong></span><span><small>HTTP</small><strong>WISP</strong></span><span><small>SECURE</small><strong>ACTIVE</strong></span></div>
             </article>
             <article class="dashboard-card tip-card">
               <span class="tip-icon">?</span>
@@ -130,7 +130,7 @@
     <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
       <div class="dialog-header"><div><span class="section-kicker">PREFERENCES</span><h2 id="settingsTitle">設定</h2></div><button class="icon-button" id="closeSettingsButton" type="button" aria-label="設定を閉じる">×</button></div>
       <div class="settings-group"><label for="themeSelect">テーマ</label><p>画面の表示テーマを選択します。</p><select id="themeSelect"><option value="system">システムに合わせる</option><option value="dark">ダーク</option><option value="light">ライト</option></select></div>
-      <div class="settings-group"><label for="defaultEngineSelect">既定のエンジン</label><p>ホーム画面で最初に選択されるプロキシを指定します。</p><select id="defaultEngineSelect"><option value="bare">Bare HTTP</option><option value="wisp">Wisp Socket</option></select></div>
+      <div class="settings-group"><label for="defaultEngineSelect">既定のエンジン</label><p>ホーム画面で最初に選択されるプロキシを指定します。</p><select id="defaultEngineSelect"><option value="bare">Bare HTTP</option><option value="wisp">Epoxy + Wisp HTTP</option></select></div>
       <div class="settings-group settings-danger"><label>ローカルデータ</label><p>このブラウザに保存された履歴とブックマークを削除します。</p><button class="danger-button" id="clearLocalDataButton" type="button">ローカルデータを削除</button></div>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

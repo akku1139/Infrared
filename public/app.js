@@ -112,8 +112,8 @@ function setEngine(engine) {
   elements.engine.value = engine;
   elements.defaultEngineSelect.value = engine;
   if (engine === 'wisp') {
-    elements.statusTitle.textContent = 'Socket proxy is ready';
-    elements.statusDescription.textContent = 'Wisp WebSocket 接続を開始できます';
+    elements.statusTitle.textContent = 'Wisp HTTP proxy is ready';
+    elements.statusDescription.textContent = 'Epoxy transport 経由でHTTP閲覧できます';
   } else {
     elements.statusTitle.textContent = 'Proxy is ready';
     elements.statusDescription.textContent = '安全な接続を開始できます';
