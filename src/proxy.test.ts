@@ -20,8 +20,6 @@ function createWorker(fetchImpl: typeof fetch) {
     TextEncoder,
     console,
     fetch: fetchImpl,
-    setTimeout,
-    clearTimeout,
     location: {
       origin: "https://proxy.example",
       href: "https://proxy.example/",
@@ -31,31 +29,52 @@ function createWorker(fetchImpl: typeof fetch) {
     },
     skipWaiting() {},
     clients: { claim: () => Promise.resolve() },
+    Ultraviolet: {
+      codec: {
+        xor: {
+          encode(value: string) {
+            return encodeURIComponent(value);
+          },
+          decode(value: string) {
+            return decodeURIComponent(value);
+          },
+        },
+      },
+    },
+    '__uv$config': {
+      encodeUrl(value: string) {
+        return encodeURIComponent(value);
+      },
+      decodeUrl(value: string) {
+        return decodeURIComponent(value);
+      },
+    },
   };
   scope.self = scope;
-  scope.importScripts = () => runInContext(proxyUrlSource, context);
+  scope.importScripts = () => {};
+  scope.UVServiceWorker = class {
+    route(event: any) {
+      return event.request.url.startsWith("https://proxy.example/service/");
+    }
+
+    async fetch(event: any) {
+      return fetchImpl("https://proxy.example/bare/v3", {
+        method: event.request.method,
+        headers: { "X-UV-Routed": "true" },
+      });
+    }
+  };
   const context = createContext(scope);
+  runInContext(proxyUrlSource, context);
   runInContext(serviceWorkerSource, context);
   return { scope, listeners };
 }
 
 describe("proxy service worker", () => {
-  it("routes encoded service URLs to Bare and rewrites HTML links", async () => {
-    let bareRequest: Request | undefined;
-    const worker = createWorker(async (input, init) => {
-      bareRequest = new Request(input, init);
-      return new Response(
-        '<html><head><style>body{background:url("/images/bg.png")}</style></head><body><a href="/next">next</a><img src="images/logo.svg"><form action="/submit"></form><img srcset="/small.png 1x, /large.png 2x"></body></html>',
-        {
-          status: 200,
-          headers: {
-            "X-Bare-Status": "200",
-            "X-Bare-Status-Text": "OK",
-            "X-Bare-Headers": JSON.stringify({ "content-type": "text/html" }),
-          },
-        },
-      );
-    });
+  it("delegates encoded service URLs to the official UV runtime", async () => {
+    const worker = createWorker(async (_input, init) => new Response("proxied", {
+      headers: init?.headers,
+    }));
     const target = "https://example.com/start/index.html";
     const encoded = worker.scope.infraredProxy.encode(target);
     let responsePromise: Promise<Response> | undefined;
@@ -67,45 +86,26 @@ describe("proxy service worker", () => {
     });
 
     const response = await responsePromise!;
-    const body = await response.text();
-    assert.equal(bareRequest?.url, "https://proxy.example/bare/v3");
-    assert.equal(bareRequest?.headers.get("X-Bare-URL"), target);
-    assert.match(body, /\/service\//);
-    assert.match(body, /next/);
-    assert.doesNotMatch(body, /href="\/next"/);
-    assert.doesNotMatch(body, /src="images\/logo\.svg"/);
-    assert.equal(response.headers.get("X-Infrared-Proxy"), "bare-v3");
+    assert.equal(await response.text(), "proxied");
+    assert.equal(response.headers.get("X-UV-Routed"), "true");
   });
 
-  it("rewrites CSS resources and preserves non-proxy requests", async () => {
+  it("passes non-service requests through the official UV runtime", async () => {
     let fetchCount = 0;
-    const worker = createWorker(async () => {
+    const worker = createWorker(async (input) => {
       fetchCount += 1;
-      return new Response("body { background: url(/image.png) }", {
-        headers: {
-          "X-Bare-Headers": JSON.stringify({ "content-type": "text/css" }),
-        },
-      });
+      const requestUrl = typeof input === "string" ? input : input.url;
+      return new Response(new URL(requestUrl).pathname);
     });
-
     let responsePromise: Promise<Response> | undefined;
     worker.listeners.get("fetch")!({
-      request: new Request(`https://proxy.example/service/${worker.scope.infraredProxy.encode("https://example.com/assets/site.css")}`),
+      request: new Request("https://proxy.example/app.js"),
       respondWith(value: Promise<Response>) {
         responsePromise = value;
       },
     });
-    const response = await responsePromise!;
-    assert.match(await response.text(), /\/service\//);
-    assert.equal(fetchCount, 1);
 
-    let intercepted = false;
-    worker.listeners.get("fetch")!({
-      request: new Request("https://proxy.example/app.js"),
-      respondWith() {
-        intercepted = true;
-      },
-    });
-    assert.equal(intercepted, false);
+    assert.equal(await (await responsePromise!).text(), "/app.js");
+    assert.equal(fetchCount, 1);
   });
 });

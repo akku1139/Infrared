@@ -258,7 +258,7 @@ function showResponseLoading(url) {
   elements.responseBody.replaceChildren();
   const frame = document.createElement('iframe');
   frame.title = `プロキシ: ${titleForUrl(url)}`;
-  frame.setAttribute('sandbox', 'allow-forms allow-modals allow-popups allow-scripts');
+  frame.setAttribute('sandbox', 'allow-forms allow-modals allow-popups allow-scripts allow-same-origin');
   frame.src = window.infraredProxy.toProxyUrl(url);
   frame.addEventListener('load', () => {
     elements.responseStatus.textContent = 'OPEN';
@@ -267,7 +267,7 @@ function showResponseLoading(url) {
   elements.responseBody.append(frame);
   elements.responseDetails.replaceChildren();
   appendDetail('ROUTE', '/service/');
-  appendDetail('ENGINE', 'Service Worker → Bare V3');
+  appendDetail('ENGINE', state.engine === 'wisp' ? 'Ultraviolet → Wisp' : 'Ultraviolet → Bare V3');
   setView('response');
 }
 
@@ -290,16 +290,13 @@ async function openDestination(value) {
     elements.input.focus();
     return;
   }
-  if (state.engine === 'wisp') {
-    setFormMessage('Wisp は HTTP 閲覧ではなく WebSocket/TCP 接続用です。', { href: '/test.html', label: 'テストコンソールを開く' });
-    return;
-  }
   setFormMessage('');
   saveHistory(url);
   try {
     await window.infraredServiceWorker;
+    await window.infraredSetTransport(state.engine);
   } catch (error) {
-    setFormMessage(error.message || 'Service Worker の起動に失敗しました。');
+    setFormMessage(error.message || 'プロキシの起動に失敗しました。');
     return;
   }
   showResponseLoading(url);
@@ -323,7 +320,7 @@ async function openDestination(value) {
     pre.textContent = error.message || 'プロキシ接続に失敗しました。';
     elements.responseBody.append(pre);
     elements.responseDetails.replaceChildren();
-    appendDetail('ENGINE', 'Service Worker → Bare V3');
+    appendDetail('ENGINE', state.engine === 'wisp' ? 'Ultraviolet → Wisp' : 'Ultraviolet → Bare V3');
     appendDetail('TARGET', url);
     updateBookmarkButton();
   }

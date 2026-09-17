@@ -1,25 +1,17 @@
 (function (global) {
   const prefix = '/service/';
-  const urlRegex = /^(#|about:|data:|mailto:|javascript:)/i;
+  const urlRegex = /^(#|about:|blob:|data:|mailto:|javascript:)/i;
+
+  function config() {
+    return global.__uv$config;
+  }
 
   function encode(value) {
-    if (!value) return value;
-    let output = '';
-    for (let index = 0; index < value.length; index += 1) {
-      output += index % 2 ? String.fromCharCode(value.charCodeAt(index) ^ 2) : value[index];
-    }
-    return encodeURIComponent(output);
+    return config().encodeUrl(value);
   }
 
   function decode(value) {
-    if (!value) return value;
-    const [path, ...query] = value.split('?');
-    let output = '';
-    const decoded = decodeURIComponent(path);
-    for (let index = 0; index < decoded.length; index += 1) {
-      output += index % 2 ? String.fromCharCode(decoded.charCodeAt(index) ^ 2) : decoded[index];
-    }
-    return output + (query.length ? `?${query.join('?')}` : '');
+    return config().decodeUrl(value);
   }
 
   function isProxyUrl(value) {
@@ -31,6 +23,7 @@
     if (!input || urlRegex.test(input)) return input;
     if (input.startsWith(prefix)) return `${origin}${input}`;
     if (isProxyUrl(input)) return input;
+
     try {
       return `${origin}${prefix}${encode(new URL(input, base).href)}`;
     } catch {
@@ -42,6 +35,7 @@
     const input = String(value ?? '');
     const originPrefix = `${global.location.origin}${prefix}`;
     if (!input || urlRegex.test(input) || !input.startsWith(originPrefix)) return input;
+
     try {
       return new URL(decode(input.slice(originPrefix.length)), base).href;
     } catch {
