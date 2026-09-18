@@ -1,401 +1,144 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ja" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Infrared Proxy - Bare Client Demo</title>
-    <link rel="stylesheet" type="text/css" href="/main.css" />
-    <style>
-      .container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 20px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      }
-      .section {
-        background: #f5f5f5;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-      }
-      .section h2 {
-        margin-top: 0;
-        color: #333;
-      }
-      input[type="text"], textarea {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        box-sizing: border-box;
-      }
-      textarea {
-        min-height: 150px;
-        font-family: monospace;
-        resize: vertical;
-      }
-      button {
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        margin-right: 10px;
-        margin-top: 10px;
-      }
-      button:hover {
-        background: #0056b3;
-      }
-      button.secondary {
-        background: #6c757d;
-      }
-      button.secondary:hover {
-        background: #545b62;
-      }
-      .output {
-        background: #1e1e1e;
-        color: #d4d4d4;
-        padding: 15px;
-        border-radius: 4px;
-        overflow-x: auto;
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 13px;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        max-height: 400px;
-        overflow-y: auto;
-      }
-      .status {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: bold;
-        margin-left: 10px;
-      }
-      .status.connected {
-        background: #28a745;
-        color: white;
-      }
-      .status.disconnected {
-        background: #dc3545;
-        color: white;
-      }
-      .status.connecting {
-        background: #ffc107;
-        color: #333;
-      }
-      .tabs {
-        display: flex;
-        border-bottom: 2px solid #ddd;
-        margin-bottom: 15px;
-      }
-      .tab {
-        padding: 10px 20px;
-        cursor: pointer;
-        border: none;
-        background: none;
-        font-size: 14px;
-        color: #666;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-      }
-      .tab.active {
-        color: #007bff;
-        border-bottom-color: #007bff;
-      }
-      .tab-content {
-        display: none;
-      }
-      .tab-content.active {
-        display: block;
-      }
-      .form-group {
-        margin-bottom: 15px;
-      }
-      .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: 500;
-        color: #555;
-      }
-      select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        box-sizing: border-box;
-      }
-    </style>
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="description" content="Infrared proxy workspace" />
+    <title>Infrared — Proxy workspace</title>
+    <link rel="stylesheet" href="/main.css" />
   </head>
   <body>
-    <div class="container">
-      <h1>🌐 Infrared Proxy</h1>
-      <p>Bare Server V3 with WebSocket support - Client Demo</p>
-      
-      <div class="section">
-        <h2>HTTP/HTTPS Proxy</h2>
-        <div class="form-group">
-          <label for="url">URL to fetch through proxy:</label>
-          <input type="text" id="url" placeholder="https://httpbin.org/get" value="https://httpbin.org/get" />
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#home" data-nav="home" aria-label="Infrared ホーム">
+          <span class="brand-mark">IR</span>
+          <span class="brand-name">Infrared</span>
+        </a>
+        <nav class="topnav" aria-label="メインナビゲーション">
+          <button class="nav-link is-active" type="button" data-nav="home">ホーム</button>
+          <button class="nav-link" type="button" data-nav="history">履歴</button>
+          <button class="nav-link" type="button" data-nav="bookmarks">ブックマーク</button>
+        </nav>
+        <div class="topbar-actions">
+          <span class="online-indicator" id="onlineIndicator"><span></span>オンライン</span>
+          <button class="icon-button" id="settingsButton" type="button" aria-label="設定を開く" title="設定">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"/><path d="m19.4 15 .06.05a1.7 1.7 0 0 1-2.4 2.4l-.05-.06a1.7 1.7 0 0 0-2.9 1.2v.16a1.7 1.7 0 0 1-3.4 0v-.16a1.7 1.7 0 0 0-2.9-1.2l-.05.06a1.7 1.7 0 1 1-2.4-2.4l.06-.05a1.7 1.7 0 0 0-1.2-2.9H4.1a1.7 1.7 0 0 1 0-3.4h.16a1.7 1.7 0 0 0 1.2-2.9l-.06-.05a1.7 1.7 0 1 1 2.4-2.4l.05.06a1.7 1.7 0 0 0 2.9-1.2V2.1a1.7 1.7 0 0 1 3.4 0v.16a1.7 1.7 0 0 0 2.9 1.2l.05-.06a1.7 1.7 0 1 1 2.4 2.4l-.06.05a1.7 1.7 0 0 0 1.2 2.9h.16a1.7 1.7 0 0 1 0 3.4h-.16a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+          </button>
+          <button class="menu-button" id="menuButton" type="button" aria-label="メニューを開く" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="method">HTTP Method:</label>
-          <select id="method">
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
-            <option value="DELETE">DELETE</option>
-            <option value="PATCH">PATCH</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="headers">Headers (JSON):</label>
-          <textarea id="headers" placeholder='{"Content-Type": "application/json"}'>{}</textarea>
-        </div>
-        <div class="form-group">
-          <label for="body">Body (for POST/PUT/PATCH):</label>
-          <textarea id="body" placeholder='{"key": "value"}'></textarea>
-        </div>
-        <button id="fetchBtn">Fetch</button>
-        <button id="clearHttpBtn" class="secondary">Clear</button>
-        
-        <h3>Response:</h3>
-        <div class="output" id="httpOutput">Click "Fetch" to make a request...</div>
-      </div>
-      
-      <div class="section">
-        <h2>WebSocket Proxy</h2>
-        <div class="form-group">
-          <label for="wsUrl">WebSocket URL:</label>
-          <input type="text" id="wsUrl" placeholder="wss://echo.websocket.org" value="wss://echo.websocket.org" />
-        </div>
-        <div>
-          <button id="connectBtn">Connect</button>
-          <button id="disconnectBtn" class="secondary" disabled>Disconnect</button>
-          <span id="wsStatus" class="status disconnected">Disconnected</span>
-        </div>
-        
-        <div class="form-group" style="margin-top: 15px;">
-          <label for="wsMessage">Send Message:</label>
-          <input type="text" id="wsMessage" placeholder="Enter message to send..." disabled />
-        </div>
-        <button id="sendBtn" disabled>Send</button>
-        <button id="clearWsBtn" class="secondary">Clear Log</button>
-        
-        <h3>WebSocket Log:</h3>
-        <div class="output" id="wsOutput">Connect to start WebSocket session...</div>
-      </div>
-      
-      <div class="section">
-        <h2>About</h2>
-        <p>
-          This demo showcases the <strong>Infrared Bare Client</strong>, a TypeScript implementation 
-          compatible with TompHTTP Bare Server v3 specification. It supports both HTTP/HTTPS proxying 
-          and WebSocket connections through the Bare protocol.
-        </p>
-        <p>
-          Inspired by <a href="https://github.com/titaniumnetwork-dev/Ultraviolet" target="_blank">Ultraviolet</a> 
-          and <a href="https://github.com/MercuryWorkshop/scramjet" target="_blank">Scramjet</a>.
-        </p>
-        <p><strong>Server:</strong> <code id="serverUrl"></code></p>
-      </div>
+      </header>
+
+      <main>
+        <section class="view home-view is-visible" id="homeView" aria-labelledby="homeTitle">
+          <div class="hero-grid">
+            <div class="hero-copy">
+              <div class="eyebrow"><span class="eyebrow-dot"></span>YOUR PRIVATE WORKSPACE</div>
+              <h1 id="homeTitle">Explore the web<br /><span>your way.</span></h1>
+              <p class="hero-description">ひとつの場所から、自由にウェブへアクセス。URL または検索ワードを入力して始めましょう。</p>
+            </div>
+            <div class="hero-orbit" aria-hidden="true">
+              <div class="orbit orbit-one"></div>
+              <div class="orbit orbit-two"></div>
+              <div class="orbit-core">IR</div>
+              <span class="orbit-dot orbit-dot-one"></span>
+              <span class="orbit-dot orbit-dot-two"></span>
+              <span class="orbit-dot orbit-dot-three"></span>
+            </div>
+          </div>
+
+          <form class="proxy-form" id="proxyForm">
+            <label class="sr-only" for="destinationInput">アクセスする URL または検索ワード</label>
+            <div class="search-box">
+              <div class="engine-select-wrap">
+                <label class="sr-only" for="engineSelect">プロキシエンジン</label>
+                <select id="engineSelect" aria-label="プロキシエンジン">
+                  <option value="bare">Bare HTTP</option>
+                  <option value="wisp">Epoxy + Wisp HTTP</option>
+                </select>
+              </div>
+              <span class="search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg>
+              </span>
+              <input id="destinationInput" type="text" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="URL または検索ワードを入力" />
+              <button class="go-button" type="submit"><span>開く</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+            </div>
+            <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+          </form>
+
+          <div class="quick-links-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">QUICK ACCESS</span>
+                <h2>すぐにアクセス</h2>
+              </div>
+              <span class="section-hint">よく使うサービス</span>
+            </div>
+            <div class="quick-links" id="quickLinks">
+              <button class="quick-card" type="button" data-url="https://www.google.com">
+                <span class="quick-icon quick-google">G</span><span><strong>Google</strong><small>検索</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button class="quick-card" type="button" data-url="https://www.youtube.com">
+                <span class="quick-icon quick-youtube"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 7.1a2.5 2.5 0 0 0-1.8-1.8C16.8 5 12 5 12 5s-4.8 0-6.4.3a2.5 2.5 0 0 0-1.8 1.8A26 26 0 0 0 3.5 12c0 1.7.1 3.3.3 4.9a2.5 2.5 0 0 0 1.8 1.8C7.2 19 12 19 12 19s4.8 0 6.4-.3a2.5 2.5 0 0 0 1.8-1.8c.2-1.6.3-3.2.3-4.9s-.1-3.3-.3-4.9Z"/><path d="m10 15 5-3-5-3v6Z"/></svg></span><span><strong>YouTube</strong><small>動画</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button class="quick-card" type="button" data-url="https://www.wikipedia.org">
+                <span class="quick-icon quick-wiki">W</span><span><strong>Wikipedia</strong><small>百科事典</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button class="quick-card" type="button" data-url="https://github.com">
+                <span class="quick-icon quick-github"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8a9.2 9.2 0 0 0-2.9 17.9c.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.2-3.4-1.2-.5-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.5 1.1 1.5 1.1.9 1.5 2.3 1.1 2.9.8.1-.7.4-1.1.6-1.4-2.2-.2-4.6-1.1-4.6-4.9 0-1.1.4-2 .9-2.7-.1-.2-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.7 9.7 0 0 1 5.1 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.5.1 2.7.6.7.9 1.6.9 2.7 0 3.8-2.4 4.7-4.6 4.9.4.3.7 1 .7 1.9v2.8c0 .3.2.6.7.5A9.2 9.2 0 0 0 12 2.8Z"/></svg></span><span><strong>GitHub</strong><small>開発</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="dashboard-card status-card">
+              <div class="card-topline"><span class="section-kicker">SYSTEM STATUS</span><span class="status-live"><i></i>LIVE</span></div>
+              <div class="status-main"><span class="status-ring"><i></i></span><div><strong id="statusTitle">Proxy is ready</strong><p id="statusDescription">安全な接続を開始できます</p></div></div>
+              <div class="status-metrics"><span><small>HTTP</small><strong>BARE V3</strong></span><span><small>HTTP</small><strong>WISP</strong></span><span><small>SECURE</small><strong>ACTIVE</strong></span></div>
+            </article>
+            <article class="dashboard-card tip-card">
+              <span class="tip-icon">?</span>
+              <div><span class="section-kicker">QUICK TIP</span><p>検索ワードを入力すると、検索エンジンの結果ページを開きます。</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view library-view" id="historyView" aria-labelledby="historyTitle" hidden>
+          <div class="page-heading"><div><span class="section-kicker">YOUR ACTIVITY</span><h1 id="historyTitle">履歴</h1><p>最近アクセスしたページをすぐに開けます。</p></div><button class="outline-button" id="clearHistoryButton" type="button">履歴をすべて削除</button></div>
+          <div class="library-list" id="historyList"></div>
+          <div class="empty-state" id="historyEmpty" hidden><span class="empty-icon">◷</span><h2>履歴はまだありません</h2><p>ホームから URL を開くと、ここに表示されます。</p><button class="primary-button" type="button" data-nav="home">ホームへ戻る</button></div>
+        </section>
+
+        <section class="view library-view" id="bookmarksView" aria-labelledby="bookmarksTitle" hidden>
+          <div class="page-heading"><div><span class="section-kicker">SAVED PLACES</span><h1 id="bookmarksTitle">ブックマーク</h1><p>お気に入りのページを保存して、いつでもアクセスできます。</p></div><button class="outline-button" id="clearBookmarksButton" type="button">すべて削除</button></div>
+          <div class="library-list" id="bookmarksList"></div>
+          <div class="empty-state" id="bookmarksEmpty" hidden><span class="empty-icon">☆</span><h2>ブックマークはまだありません</h2><p>アクセス結果の星ボタンから保存できます。</p><button class="primary-button" type="button" data-nav="home">ホームへ戻る</button></div>
+        </section>
+
+        <section class="view response-view" id="responseView" aria-labelledby="responseTitle" hidden>
+          <div class="response-heading"><button class="back-button" id="responseBackButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>戻る</button><div class="response-actions"><button class="icon-button" id="bookmarkResponseButton" type="button" aria-label="ブックマークに保存"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></button><button class="outline-button" id="openDirectButton" type="button">元の URL を開く</button></div></div>
+          <div class="response-meta"><span class="response-method" id="responseMethod">GET</span><div><h1 id="responseTitle">Response</h1><p id="responseUrl"></p></div><span class="response-status" id="responseStatus">200 OK</span></div>
+          <div class="response-layout"><article class="response-body-card"><div class="card-topline"><span class="section-kicker">RESPONSE BODY</span><button class="copy-button" id="copyResponseButton" type="button">コピー</button></div><div id="responseBody" class="response-body"></div></article><aside class="response-side-card"><div class="card-topline"><span class="section-kicker">DETAILS</span></div><dl id="responseDetails" class="response-details"></dl></aside></div>
+        </section>
+      </main>
+
+      <footer class="site-footer"><span>Infrared proxy workspace</span><span class="footer-links"><a href="/test.html">テストコンソール</a><span>·</span><a href="/credits.html">ライセンス</a><span>·</span><a href="https://github.com/akku1139/Infrared" target="_blank" rel="noreferrer">ソースコード</a></span></footer>
     </div>
-    
-    <script src="/client.js"></script>
-    <script>
-      // Initialize BareClient
-      const bareServer = window.location.origin + '/bare/';
-      document.getElementById('serverUrl').textContent = bareServer;
-      const client = new BareClient(bareServer);
-      
-      let wsConnection = null;
-      
-      // HTTP Fetch functionality
-      document.getElementById('fetchBtn').addEventListener('click', async () => {
-        const url = document.getElementById('url').value.trim();
-        const method = document.getElementById('method').value;
-        const headersText = document.getElementById('headers').value.trim();
-        const bodyText = document.getElementById('body').value.trim();
-        const output = document.getElementById('httpOutput');
-        
-        if (!url) {
-          output.textContent = 'Error: Please enter a URL';
-          return;
-        }
-        
-        let headers = {};
-        try {
-          headers = headersText ? JSON.parse(headersText) : {};
-        } catch (e) {
-          output.textContent = 'Error: Invalid JSON in headers field\\n' + e.message;
-          return;
-        }
-        
-        const options = {
-          method: method,
-          headers: headers
-        };
-        
-        if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
-          options.body = bodyText;
-        }
-        
-        output.textContent = 'Loading...';
-        
-        try {
-          const startTime = Date.now();
-          const response = await client.fetch(url, options);
-          const endTime = Date.now();
-          
-          const statusLine = `Status: ${response.status} ${response.statusText} (${endTime - startTime}ms)`;
-          const headersObj = {};
-          response.headers.forEach((value, key) => {
-            headersObj[key] = value;
-          });
-          
-          let result = statusLine + '\\n\\nHeaders:\\n' + JSON.stringify(headersObj, null, 2);
-          
-          const contentType = response.headers.get('content-type') || '';
-          let body;
-          
-          if (contentType.includes('application/json')) {
-            body = await response.json();
-            result += '\\n\\nBody (JSON):\\n' + JSON.stringify(body, null, 2);
-          } else if (contentType.includes('text/')) {
-            body = await response.text();
-            result += '\\n\\nBody (Text):\\n' + body;
-          } else {
-            body = await response.blob();
-            result += '\\n\\nBody (Blob): ' + body.size + ' bytes';
-          }
-          
-          output.textContent = result;
-        } catch (e) {
-          output.textContent = 'Error: ' + e.message + '\\n' + e.stack;
-        }
-      });
-      
-      document.getElementById('clearHttpBtn').addEventListener('click', () => {
-        document.getElementById('httpOutput').textContent = 'Click "Fetch" to make a request...';
-      });
-      
-      // WebSocket functionality
-      function updateWsStatus(status, text) {
-        const statusEl = document.getElementById('wsStatus');
-        statusEl.className = 'status ' + status;
-        statusEl.textContent = text;
-      }
-      
-      function logWsMessage(message) {
-        const output = document.getElementById('wsOutput');
-        const timestamp = new Date().toLocaleTimeString();
-        if (output.textContent === 'Connect to start WebSocket session...') {
-          output.textContent = '';
-        }
-        output.textContent += '[' + timestamp + '] ' + message + '\\n';
-        output.scrollTop = output.scrollHeight;
-      }
-      
-      document.getElementById('connectBtn').addEventListener('click', () => {
-        const wsUrl = document.getElementById('wsUrl').value.trim();
-        
-        if (!wsUrl) {
-          logWsMessage('Error: Please enter a WebSocket URL');
-          return;
-        }
-        
-        if (wsConnection) {
-          wsConnection.close();
-        }
-        
-        updateWsStatus('connecting', 'Connecting...');
-        logWsMessage('Connecting to ' + wsUrl + '...');
-        
-        try {
-          wsConnection = client.websocket(wsUrl);
-          
-          wsConnection.addEventListener('open', () => {
-            updateWsStatus('connected', 'Connected');
-            logWsMessage('✓ Connected to ' + wsUrl);
-            document.getElementById('wsMessage').disabled = false;
-            document.getElementById('sendBtn').disabled = false;
-            document.getElementById('connectBtn').disabled = true;
-            document.getElementById('disconnectBtn').disabled = false;
-          });
-          
-          wsConnection.addEventListener('message', (event) => {
-            let data = event.data;
-            if (typeof data === 'string') {
-              logWsMessage('← [TEXT] ' + data);
-            } else if (data instanceof Blob) {
-              data.text().then(text => {
-                logWsMessage('← [BLOB] ' + text);
-              });
-            } else if (data instanceof ArrayBuffer) {
-              logWsMessage('← [ARRAYBUFFER] ' + data.byteLength + ' bytes');
-            } else {
-              logWsMessage('← [UNKNOWN] ' + typeof data);
-            }
-          });
-          
-          wsConnection.addEventListener('close', (event) => {
-            updateWsStatus('disconnected', 'Disconnected');
-            logWsMessage('✗ Closed (code: ' + event.code + ', reason: ' + event.reason + ')');
-            document.getElementById('wsMessage').disabled = true;
-            document.getElementById('sendBtn').disabled = true;
-            document.getElementById('connectBtn').disabled = false;
-            document.getElementById('disconnectBtn').disabled = true;
-            wsConnection = null;
-          });
-          
-          wsConnection.addEventListener('error', (event) => {
-            logWsMessage('⚠ Error: ' + (event.message || 'Unknown error'));
-          });
-          
-        } catch (e) {
-          updateWsStatus('disconnected', 'Error');
-          logWsMessage('✗ Connection failed: ' + e.message);
-        }
-      });
-      
-      document.getElementById('disconnectBtn').addEventListener('click', () => {
-        if (wsConnection) {
-          logWsMessage('Disconnecting...');
-          wsConnection.close(1000, 'User disconnected');
-        }
-      });
-      
-      document.getElementById('sendBtn').addEventListener('click', () => {
-        const message = document.getElementById('wsMessage').value;
-        if (message && wsConnection) {
-          logWsMessage('→ ' + message);
-          wsConnection.send(message);
-          document.getElementById('wsMessage').value = '';
-        }
-      });
-      
-      document.getElementById('wsMessage').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          document.getElementById('sendBtn').click();
-        }
-      });
-      
-      document.getElementById('clearWsBtn').addEventListener('click', () => {
-        document.getElementById('wsOutput').textContent = 'Connect to start WebSocket session...';
-      });
-      
-      // Auto-connect to a public echo server on load for demo
-      // Uncomment below to enable auto-connect
-      // window.addEventListener('load', () => {
-      //   setTimeout(() => {
-      //     document.getElementById('connectBtn').click();
-      //   }, 500);
-      // });
-    </script>
+
+    <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
+      <div class="dialog-header"><div><span class="section-kicker">PREFERENCES</span><h2 id="settingsTitle">設定</h2></div><button class="icon-button" id="closeSettingsButton" type="button" aria-label="設定を閉じる">×</button></div>
+      <div class="settings-group"><label for="themeSelect">テーマ</label><p>画面の表示テーマを選択します。</p><select id="themeSelect"><option value="system">システムに合わせる</option><option value="dark">ダーク</option><option value="light">ライト</option></select></div>
+      <div class="settings-group"><label for="defaultEngineSelect">既定のエンジン</label><p>ホーム画面で最初に選択されるプロキシを指定します。</p><select id="defaultEngineSelect"><option value="bare">Bare HTTP</option><option value="wisp">Epoxy + Wisp HTTP</option></select></div>
+      <div class="settings-group settings-danger"><label>ローカルデータ</label><p>このブラウザに保存された履歴とブックマークを削除します。</p><button class="danger-button" id="clearLocalDataButton" type="button">ローカルデータを削除</button></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/baremux/index.js"></script>
+    <script src="/uv/uv.bundle.js"></script>
+    <script src="/uv/uv.config.js"></script>
+    <script src="/proxy-url.js" defer></script>
+    <script src="/register-sw.js" defer></script>
+    <script src="/app.js" defer></script>
   </body>
 </html>

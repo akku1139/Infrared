@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Infrared Proxy - Bare Client Demo</title>
+    <link rel="stylesheet" type="text/css" href="/main.css" />
+    <style>
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      }
+      .section {
+        background: #f5f5f5;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .section h2 {
+        margin-top: 0;
+        color: #333;
+      }
+      input[type="text"], textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 150px;
+        font-family: monospace;
+        resize: vertical;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-top: 10px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button.secondary {
+        background: #6c757d;
+      }
+      button.secondary:hover {
+        background: #545b62;
+      }
+      .output {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+      .status.connected {
+        background: #28a745;
+        color: white;
+      }
+      .status.disconnected {
+        background: #dc3545;
+        color: white;
+      }
+      .status.connecting {
+        background: #ffc107;
+        color: #333;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 2px solid #ddd;
+        margin-bottom: 15px;
+      }
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-size: 14px;
+        color: #666;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+      }
+      .tab.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #555;
+      }
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🌐 Infrared Proxy</h1>
+      <p>Bare Server V3 with WebSocket support - Client Demo</p>
+      
+      <div class="section">
+        <h2>HTTP/HTTPS Proxy</h2>
+        <div class="form-group">
+          <label for="url">URL to fetch through proxy:</label>
+          <input type="text" id="url" placeholder="https://httpbin.org/get" value="https://httpbin.org/get" />
+        </div>
+        <div class="form-group">
+          <label for="method">HTTP Method:</label>
+          <select id="method">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="headers">Headers (JSON):</label>
+          <textarea id="headers" placeholder='{"Content-Type": "application/json"}'>{}</textarea>
+        </div>
+        <div class="form-group">
+          <label for="body">Body (for POST/PUT/PATCH):</label>
+          <textarea id="body" placeholder='{"key": "value"}'></textarea>
+        </div>
+        <button id="fetchBtn">Fetch</button>
+        <button id="clearHttpBtn" class="secondary">Clear</button>
+        
+        <h3>Response:</h3>
+        <div class="output" id="httpOutput">Click "Fetch" to make a request...</div>
+      </div>
+      
+      <div class="section">
+        <h2>WebSocket Proxy</h2>
+        <div class="form-group">
+          <label for="wsUrl">WebSocket URL:</label>
+          <input type="text" id="wsUrl" placeholder="wss://echo.websocket.org" value="wss://echo.websocket.org" />
+        </div>
+        <div>
+          <button id="connectBtn">Connect</button>
+          <button id="disconnectBtn" class="secondary" disabled>Disconnect</button>
+          <span id="wsStatus" class="status disconnected">Disconnected</span>
+        </div>
+        
+        <div class="form-group" style="margin-top: 15px;">
+          <label for="wsMessage">Send Message:</label>
+          <input type="text" id="wsMessage" placeholder="Enter message to send..." disabled />
+        </div>
+        <button id="sendBtn" disabled>Send</button>
+        <button id="clearWsBtn" class="secondary">Clear Log</button>
+        
+        <h3>WebSocket Log:</h3>
+        <div class="output" id="wsOutput">Connect to start WebSocket session...</div>
+      </div>
+      
+      <div class="section">
+        <h2>About</h2>
+        <p>
+          This demo showcases the <strong>Infrared Bare Client</strong>, a TypeScript implementation 
+          compatible with TompHTTP Bare Server v3 specification. It supports both HTTP/HTTPS proxying 
+          and WebSocket connections through the Bare protocol.
+        </p>
+        <p>
+          Inspired by <a href="https://github.com/titaniumnetwork-dev/Ultraviolet" target="_blank">Ultraviolet</a> 
+          and <a href="https://github.com/MercuryWorkshop/scramjet" target="_blank">Scramjet</a>.
+        </p>
+        <p><strong>Server:</strong> <code id="serverUrl"></code></p>
+      </div>
+    </div>
+    
+    <script src="/client.js"></script>
+    <script>
+      // Initialize BareClient
+      const bareServer = window.location.origin + '/bare/';
+      document.getElementById('serverUrl').textContent = bareServer;
+      const client = new BareClient(bareServer);
+      
+      let wsConnection = null;
+      
+      // HTTP Fetch functionality
+      document.getElementById('fetchBtn').addEventListener('click', async () => {
+        const url = document.getElementById('url').value.trim();
+        const method = document.getElementById('method').value;
+        const headersText = document.getElementById('headers').value.trim();
+        const bodyText = document.getElementById('body').value.trim();
+        const output = document.getElementById('httpOutput');
+        
+        if (!url) {
+          output.textContent = 'Error: Please enter a URL';
+          return;
+        }
+        
+        let headers = {};
+        try {
+          headers = headersText ? JSON.parse(headersText) : {};
+        } catch (e) {
+          output.textContent = 'Error: Invalid JSON in headers field\\n' + e.message;
+          return;
+        }
+        
+        const options = {
+          method: method,
+          headers: headers
+        };
+        
+        if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
+          options.body = bodyText;
+        }
+        
+        output.textContent = 'Loading...';
+        
+        try {
+          const startTime = Date.now();
+          const response = await client.fetch(url, options);
+          const endTime = Date.now();
+          
+          const statusLine = `Status: ${response.status} ${response.statusText} (${endTime - startTime}ms)`;
+          const headersObj = {};
+          response.headers.forEach((value, key) => {
+            headersObj[key] = value;
+          });
+          
+          let result = statusLine + '\\n\\nHeaders:\\n' + JSON.stringify(headersObj, null, 2);
+          
+          const contentType = response.headers.get('content-type') || '';
+          let body;
+          
+          if (contentType.includes('application/json')) {
+            body = await response.json();
+            result += '\\n\\nBody (JSON):\\n' + JSON.stringify(body, null, 2);
+          } else if (contentType.includes('text/')) {
+            body = await response.text();
+            result += '\\n\\nBody (Text):\\n' + body;
+          } else {
+            body = await response.blob();
+            result += '\\n\\nBody (Blob): ' + body.size + ' bytes';
+          }
+          
+          output.textContent = result;
+        } catch (e) {
+          output.textContent = 'Error: ' + e.message + '\\n' + e.stack;
+        }
+      });
+      
+      document.getElementById('clearHttpBtn').addEventListener('click', () => {
+        document.getElementById('httpOutput').textContent = 'Click "Fetch" to make a request...';
+      });
+      
+      // WebSocket functionality
+      function updateWsStatus(status, text) {
+        const statusEl = document.getElementById('wsStatus');
+        statusEl.className = 'status ' + status;
+        statusEl.textContent = text;
+      }
+      
+      function logWsMessage(message) {
+        const output = document.getElementById('wsOutput');
+        const timestamp = new Date().toLocaleTimeString();
+        if (output.textContent === 'Connect to start WebSocket session...') {
+          output.textContent = '';
+        }
+        output.textContent += '[' + timestamp + '] ' + message + '\\n';
+        output.scrollTop = output.scrollHeight;
+      }
+      
+      document.getElementById('connectBtn').addEventListener('click', () => {
+        const wsUrl = document.getElementById('wsUrl').value.trim();
+        
+        if (!wsUrl) {
+          logWsMessage('Error: Please enter a WebSocket URL');
+          return;
+        }
+        
+        if (wsConnection) {
+          wsConnection.close();
+        }
+        
+        updateWsStatus('connecting', 'Connecting...');
+        logWsMessage('Connecting to ' + wsUrl + '...');
+        
+        try {
+          wsConnection = client.websocket(wsUrl);
+          
+          wsConnection.addEventListener('open', () => {
+            updateWsStatus('connected', 'Connected');
+            logWsMessage('✓ Connected to ' + wsUrl);
+            document.getElementById('wsMessage').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('disconnectBtn').disabled = false;
+          });
+          
+          wsConnection.addEventListener('message', (event) => {
+            let data = event.data;
+            if (typeof data === 'string') {
+              logWsMessage('← [TEXT] ' + data);
+            } else if (data instanceof Blob) {
+              data.text().then(text => {
+                logWsMessage('← [BLOB] ' + text);
+              });
+            } else if (data instanceof ArrayBuffer) {
+              logWsMessage('← [ARRAYBUFFER] ' + data.byteLength + ' bytes');
+            } else {
+              logWsMessage('← [UNKNOWN] ' + typeof data);
+            }
+          });
+          
+          wsConnection.addEventListener('close', (event) => {
+            updateWsStatus('disconnected', 'Disconnected');
+            logWsMessage('✗ Closed (code: ' + event.code + ', reason: ' + event.reason + ')');
+            document.getElementById('wsMessage').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            wsConnection = null;
+          });
+          
+          wsConnection.addEventListener('error', (event) => {
+            logWsMessage('⚠ Error: ' + (event.message || 'Unknown error'));
+          });
+          
+        } catch (e) {
+          updateWsStatus('disconnected', 'Error');
+          logWsMessage('✗ Connection failed: ' + e.message);
+        }
+      });
+      
+      document.getElementById('disconnectBtn').addEventListener('click', () => {
+        if (wsConnection) {
+          logWsMessage('Disconnecting...');
+          wsConnection.close(1000, 'User disconnected');
+        }
+      });
+      
+      document.getElementById('sendBtn').addEventListener('click', () => {
+        const message = document.getElementById('wsMessage').value;
+        if (message && wsConnection) {
+          logWsMessage('→ ' + message);
+          wsConnection.send(message);
+          document.getElementById('wsMessage').value = '';
+        }
+      });
+      
+      document.getElementById('wsMessage').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('sendBtn').click();
+        }
+      });
+      
+      document.getElementById('clearWsBtn').addEventListener('click', () => {
+        document.getElementById('wsOutput').textContent = 'Connect to start WebSocket session...';
+      });
+      
+      // Auto-connect to a public echo server on load for demo
+      // Uncomment below to enable auto-connect
+      // window.addEventListener('load', () => {
+      //   setTimeout(() => {
+      //     document.getElementById('connectBtn').click();
+      //   }, 500);
+      // });
+    </script>
+  </body>
+</html>

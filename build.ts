@@ -18,6 +18,7 @@ async function build() {
       minify: isProduction,
       sourcemap: !isProduction,
       keepNames: true,
+      external: ["cloudflare:sockets"],
     });
     
     // Copy public directory to dist
