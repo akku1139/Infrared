@@ -54,10 +54,14 @@ export interface WispOptions {
 
 interface WispStream {
   id: number;
-  socket: WispTcpSocket;
-  reader: ReadableStreamDefaultReader<Uint8Array>;
-  writer: WritableStreamDefaultWriter<Uint8Array>;
+  socket?: WispTcpSocket;
+  reader?: ReadableStreamDefaultReader<Uint8Array>;
+  writer?: WritableStreamDefaultWriter<Uint8Array>;
+  pendingData: Uint8Array[];
+  writeQueue: Promise<void>;
+  bufferedPackets: number;
   receivedSinceContinue: number;
+  connecting: boolean;
   closed: boolean;
 }
 
@@ -236,7 +240,7 @@ class WispSession {
     }
 
     if (packet.type === packetConnect) {
-      await this.openStream(packet);
+      void this.openStream(packet);
       return;
     }
     if (packet.type === packetData) {
@@ -277,38 +281,53 @@ class WispSession {
       return;
     }
 
+    const stream: WispStream = {
+      id: packet.streamId,
+      pendingData: [],
+      writeQueue: Promise.resolve(),
+      bufferedPackets: 0,
+      receivedSinceContinue: 0,
+      connecting: true,
+      closed: false,
+    };
+    this.streams.set(stream.id, stream);
+
     let socket: WispTcpSocket;
     try {
       socket = await this.connector(destination.hostname, destination.port);
       if (socket.opened) await socket.opened;
     } catch (error) {
+      if (stream.closed || this.closed) return;
+      stream.closed = true;
+      this.streams.delete(stream.id);
       await this.sendClose(packet.streamId, closeReasonForError(error));
       return;
     }
 
-    if (this.closed) {
+    if (stream.closed || this.closed) {
       socket.close?.();
       return;
     }
 
-    let stream: WispStream;
     try {
-      stream = {
-        id: packet.streamId,
-        socket,
-        reader: socket.readable.getReader(),
-        writer: socket.writable.getWriter(),
-        receivedSinceContinue: 0,
-        closed: false,
-      };
+      stream.socket = socket;
+      stream.reader = socket.readable.getReader();
+      stream.writer = socket.writable.getWriter();
     } catch {
+      stream.closed = true;
+      this.streams.delete(stream.id);
       socket.close?.();
       await this.sendClose(packet.streamId, closeReasonNetwork);
       return;
     }
 
-    this.streams.set(stream.id, stream);
+    stream.connecting = false;
     void this.readFromStream(stream);
+
+    const pendingData = stream.pendingData.splice(0);
+    for (const payload of pendingData) {
+      this.queueStreamData(stream, payload);
+    }
   }
 
   private async writeToStream(packet: WispPacket): Promise<void> {
@@ -318,16 +337,39 @@ class WispSession {
       return;
     }
 
-    try {
-      await stream.writer.write(packet.payload);
-      stream.receivedSinceContinue += 1;
-      if (stream.receivedSinceContinue >= this.bufferSize) {
-        stream.receivedSinceContinue = 0;
-        await this.sendContinue(stream.id);
-      }
-    } catch {
-      await this.closeStream(stream, closeReasonNetwork, true);
+    if (stream.bufferedPackets >= this.bufferSize) {
+      await this.closeStream(stream, closeReasonInvalidInfo, true);
+      return;
     }
+
+    const payload = new Uint8Array(packet.payload);
+    stream.bufferedPackets += 1;
+
+    if (stream.connecting || !stream.writer) {
+      stream.pendingData.push(payload);
+      return;
+    }
+
+    this.queueStreamData(stream, payload);
+  }
+
+  private queueStreamData(stream: WispStream, payload: Uint8Array): void {
+    stream.writeQueue = stream.writeQueue.then(async () => {
+      if (this.closed || stream.closed || !stream.writer) return;
+
+      try {
+        await stream.writer.write(payload);
+        stream.bufferedPackets -= 1;
+        stream.receivedSinceContinue += 1;
+
+        if (stream.receivedSinceContinue >= this.bufferSize) {
+          stream.receivedSinceContinue = 0;
+          await this.sendContinue(stream.id);
+        }
+      } catch {
+        await this.closeStream(stream, closeReasonNetwork, true);
+      }
+    });
   }
 
   private async closeFromClient(packet: WispPacket): Promise<void> {
@@ -345,9 +387,12 @@ class WispSession {
 
   private async readFromStream(stream: WispStream): Promise<void> {
     let reason = closeReasonVoluntary;
+    const reader = stream.reader;
+    if (!reader) return;
+
     try {
       while (!this.closed && !stream.closed) {
-        const result = await stream.reader.read();
+        const result = await reader.read();
         if (result.done) break;
         if (result.value.byteLength > 0) {
           await this.send(packetData, stream.id, result.value);
@@ -378,18 +423,25 @@ class WispSession {
     if (stream.closed) return;
     stream.closed = true;
     this.streams.delete(stream.id);
+    stream.pendingData.length = 0;
 
-    try {
-      await stream.reader.cancel();
-    } catch {
+    if (stream.reader) {
+      try {
+        await stream.reader.cancel();
+      } catch {
+      }
     }
-    try {
-      await stream.writer.abort();
-    } catch {
+
+    if (stream.writer) {
+      try {
+        await stream.writer.abort();
+      } catch {
+      }
     }
-    stream.reader.releaseLock();
-    stream.writer.releaseLock();
-    stream.socket.close?.();
+
+    stream.reader?.releaseLock();
+    stream.writer?.releaseLock();
+    stream.socket?.close?.();
 
     if (notify && !this.closed) {
       try {
